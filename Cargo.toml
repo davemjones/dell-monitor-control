@@ -6,7 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
-ddc-hi = "0.4"
+# No `nvapi`: on NVIDIA GPUs it lists every monitor a second time.
+ddc-hi = { version = "0.4", default-features = false, features = ["ddc-i2c", "ddc-winapi", "ddc-macos"] }
 mccs = "0.1"
 mccs-caps = "0.1"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -14,3 +15,11 @@ serde_json = "1.0.151"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1.10.1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Devices_Display",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Registry",
+] }

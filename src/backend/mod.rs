@@ -6,8 +6,12 @@
 mod ddc;
 #[cfg(test)]
 pub mod fake;
+#[cfg(any(target_os = "linux", test))]
+mod linux_i2c;
 #[cfg(target_os = "macos")]
 mod macos_serial;
+#[cfg(any(windows, test))]
+mod windows_edid;
 
 use std::collections::BTreeMap;
 

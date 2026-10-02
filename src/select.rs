@@ -101,16 +101,16 @@ fn listing(candidates: &[Indexed]) -> String {
 }
 
 fn no_monitors_message() -> String {
-    let hint = if cfg!(target_os = "linux") {
-        "make sure the i2c-dev module is loaded (`sudo modprobe i2c-dev`) and your user can access /dev/i2c-* \
-         (e.g. add yourself to the i2c group), and that DDC/CI is enabled in the monitor's menu"
-    } else if cfg!(target_os = "windows") {
-        "make sure DDC/CI is enabled in the monitor's on-screen menu and your graphics driver is up to date"
+    const MENU_AND_CABLES: &str = "make sure DDC/CI is enabled in the monitor's on-screen menu (Others → DDC/CI); \
+         some docks, adapters, and KVM switches block DDC/CI, so try a direct cable";
+    // On Linux, a missing i2c-dev module or I²C permissions are diagnosed
+    // separately by the backend, so by this point the devices look fine.
+    let extra = if cfg!(target_os = "windows") {
+        ", and that your graphics driver is up to date"
     } else {
-        "make sure DDC/CI is enabled in the monitor's on-screen menu (Others → DDC/CI); \
-         some docks, adapters, and KVM switches block DDC/CI, so try a direct cable"
+        ""
     };
-    format!("no DDC/CI-capable monitors found\nhint: {hint}")
+    format!("no DDC/CI-capable monitors found\nhint: {MENU_AND_CABLES}{extra}")
 }
 
 #[cfg(test)]

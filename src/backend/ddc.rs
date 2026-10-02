@@ -5,13 +5,14 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use anyhow::{Result, anyhow};
-use ddc_hi::{Ddc, Display};
+use ddc_hi::{Ddc, Display, DisplayInfo};
 
 use super::{Backend, Caps, Monitor, MonitorInfo, VcpValue};
 
 pub struct DdcHiBackend {
     /// Look up serial numbers outside DDC/CI where the platform needs it.
     /// Only `list` shows serials, so other commands skip the extra lookup.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub with_serials: bool,
 }
 
@@ -24,29 +25,59 @@ impl Backend for DdcHiBackend {
             Default::default()
         };
 
-        let monitors = Display::enumerate()
-            .into_iter()
-            .map(|display| {
-                let mut info = MonitorInfo {
-                    name: display
-                        .info
-                        .model_name
-                        .clone()
-                        .unwrap_or_else(|| display.info.id.clone()),
-                    manufacturer: display.info.manufacturer_id.clone(),
-                    serial: display.info.serial_number.clone(),
-                };
-                #[cfg(target_os = "macos")]
-                if info.serial.is_none() {
-                    info.serial = serials
-                        .get(&info.name.to_ascii_uppercase())
-                        .cloned()
-                        .flatten();
+        let displays = Display::enumerate();
+
+        #[cfg(target_os = "linux")]
+        if displays.is_empty()
+            && let Some(problem) = super::linux_i2c::diagnose(&super::linux_i2c::probe())
+        {
+            anyhow::bail!(problem);
+        }
+
+        #[allow(unused_mut)] // only Windows replaces entries
+        let mut infos: Vec<MonitorInfo> = displays.iter().map(|d| info_from(&d.info)).collect();
+
+        // The Windows API only names monitors "Generic PnP Monitor"; the
+        // registry's EDID copy has the real name and serial. Only trust the
+        // pairing when both sides see the same number of monitors.
+        #[cfg(windows)]
+        {
+            let edid = super::windows_edid::lookup();
+            if edid.len() == infos.len() {
+                for (info, found) in infos.iter_mut().zip(edid) {
+                    let Some(found) = found else { continue };
+                    if !found.name.is_empty() {
+                        info.name = found.name;
+                    }
+                    info.manufacturer = found.manufacturer.or(info.manufacturer.take());
+                    info.serial = found.serial.or(info.serial.take());
                 }
-                Box::new(DdcHiMonitor { display, info }) as Box<dyn Monitor>
-            })
-            .collect();
-        Ok(monitors)
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        for info in &mut infos {
+            if info.serial.is_none() {
+                info.serial = serials
+                    .get(&info.name.to_ascii_uppercase())
+                    .cloned()
+                    .flatten();
+            }
+        }
+
+        Ok(displays
+            .into_iter()
+            .zip(infos)
+            .map(|(display, info)| Box::new(DdcHiMonitor { display, info }) as Box<dyn Monitor>)
+            .collect())
+    }
+}
+
+fn info_from(info: &DisplayInfo) -> MonitorInfo {
+    MonitorInfo {
+        name: info.model_name.clone().unwrap_or_else(|| info.id.clone()),
+        manufacturer: info.manufacturer_id.clone(),
+        serial: info.serial_number.clone(),
     }
 }
 
@@ -105,10 +136,8 @@ impl Monitor for DdcHiMonitor {
     }
 
     fn capabilities(&mut self) -> Result<Caps> {
-        let raw = self
-            .display
-            .handle
-            .capabilities_string()
+        let handle = &mut self.display.handle;
+        let raw = retry(|| handle.capabilities_string())
             .map_err(|e| anyhow!("couldn't read capabilities from {}: {e}", self.info.name))?;
         Caps::parse(&raw)
     }
