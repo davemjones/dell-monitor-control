@@ -1,6 +1,8 @@
 //! In-memory monitors for tests.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use anyhow::{Result, bail};
 
@@ -9,11 +11,19 @@ use super::{Backend, Caps, Monitor, MonitorInfo, VcpValue};
 /// The capabilities string read from a real U3425WE.
 pub const U3425WE_CAPS: &str = "(prot(monitor)type(LCD)model(U3425WE)cmds(01 02 03 07 0C E3 F3)vcp(02 04 05 08 10 12 14(01 04 05 06 08 09 0B 0C) 16 18 1A 52 60(19 0F 11 ) 62 66(00F2) 67 68 87 AC AE B2 B6 C6 C8 C9 CA CC(02 0A 03 04 08 09 0D 06 ) D6(01 04 05) DC(00 03 05 ) DF E0(03) E2(00 02 04 0C 0D 0F 10 11 13 0B 1A 1B 3D 14 ) E4(00 01) E5 E7(02 03) E8 E9(00 01 02 21 22 24 2B 2C ) EA(FC F8 ) F0(09 0A A1 ) EE EF(00 01 0F) F1 F2 FD)mswhql(1)asset_eep(40)mccs_ver(2.1))";
 
+/// Every write a fake monitor received, as (VCP code, raw value).
+pub type WriteLog = Rc<RefCell<Vec<(u8, u16)>>>;
+
 #[derive(Clone, Default)]
 pub struct FakeMonitor {
     pub info: MonitorInfo,
     pub values: HashMap<u8, VcpValue>,
     pub caps: Option<&'static str>,
+    /// Every write sent to this monitor, shared across clones so tests can
+    /// inspect it after `FakeBackend` hands out copies.
+    pub writes: WriteLog,
+    /// Make every write fail, like a monitor that ignores DDC/CI writes.
+    pub read_only: bool,
 }
 
 impl FakeMonitor {
@@ -56,6 +66,7 @@ impl FakeMonitor {
                 ),
             ]),
             caps: Some(U3425WE_CAPS),
+            ..Default::default()
         }
     }
 
@@ -80,6 +91,16 @@ impl Monitor for FakeMonitor {
             Some(v) => Ok(*v),
             None => bail!("couldn't read setting {code:#04x} from {}", self.info.name),
         }
+    }
+
+    fn write_vcp(&mut self, code: u8, value: u16) -> Result<()> {
+        if self.read_only {
+            bail!("couldn't change setting {code:#04x} on {}", self.info.name);
+        }
+        self.writes.borrow_mut().push((code, value));
+        let max = self.values.get(&code).map_or(100, |v| v.max);
+        self.values.insert(code, VcpValue { value, max });
+        Ok(())
     }
 
     fn capabilities(&mut self) -> Result<Caps> {

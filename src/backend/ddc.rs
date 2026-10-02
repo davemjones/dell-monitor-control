@@ -1,6 +1,9 @@
 //! Real monitor access through `ddc-hi`, which wraps the native DDC/CI
 //! channel on macOS, Windows, and Linux.
 
+use std::thread::sleep;
+use std::time::Duration;
+
 use anyhow::{Result, anyhow};
 use ddc_hi::{Ddc, Display};
 
@@ -47,6 +50,24 @@ impl Backend for DdcHiBackend {
     }
 }
 
+/// DDC/CI transactions fail now and then (bad length, checksum mismatch),
+/// especially right after another command, so each one gets a few tries
+/// with a growing pause in between.
+const ATTEMPTS: u32 = 4;
+
+fn retry<T, E>(mut op: impl FnMut() -> Result<T, E>) -> Result<T, E> {
+    let mut attempt = 1;
+    loop {
+        match op() {
+            Err(_) if attempt < ATTEMPTS => {
+                sleep(Duration::from_millis(50 * u64::from(attempt)));
+                attempt += 1;
+            }
+            result => return result,
+        }
+    }
+}
+
 struct DdcHiMonitor {
     display: Display,
     info: MonitorInfo,
@@ -58,7 +79,8 @@ impl Monitor for DdcHiMonitor {
     }
 
     fn read_vcp(&mut self, code: u8) -> Result<VcpValue> {
-        let v = self.display.handle.get_vcp_feature(code).map_err(|e| {
+        let handle = &mut self.display.handle;
+        let v = retry(|| handle.get_vcp_feature(code)).map_err(|e| {
             anyhow!(
                 "couldn't read setting {code:#04x} from {}: {e}",
                 self.info.name
@@ -68,6 +90,18 @@ impl Monitor for DdcHiMonitor {
             value: v.value(),
             max: v.maximum(),
         })
+    }
+
+    fn write_vcp(&mut self, code: u8, value: u16) -> Result<()> {
+        self.display
+            .handle
+            .set_vcp_feature(code, value)
+            .map_err(|e| {
+                anyhow!(
+                    "couldn't change setting {code:#04x} on {}: {e}",
+                    self.info.name
+                )
+            })
     }
 
     fn capabilities(&mut self) -> Result<Caps> {

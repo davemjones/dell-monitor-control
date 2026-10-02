@@ -58,7 +58,10 @@ pub enum InputAction {
     /// List the inputs this monitor supports; the active one is marked with *
     List,
     /// Switch to an input by name (hdmi, dp, thunderbolt, usb-c, …) or raw code (e.g. 0x0f)
-    Set { input: String },
+    Set {
+        /// Input name or alias (hdmi, dp, displayport, thunderbolt, usb-c, tb) or raw code (0x0f)
+        input: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

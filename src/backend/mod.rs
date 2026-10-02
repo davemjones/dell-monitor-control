@@ -66,6 +66,7 @@ impl Caps {
 pub trait Monitor {
     fn info(&self) -> &MonitorInfo;
     fn read_vcp(&mut self, code: u8) -> Result<VcpValue>;
+    fn write_vcp(&mut self, code: u8, value: u16) -> Result<()>;
     fn capabilities(&mut self) -> Result<Caps>;
 }
 
