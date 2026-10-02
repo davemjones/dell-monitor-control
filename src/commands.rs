@@ -1,6 +1,6 @@
 //! Command logic: talk to the selected monitor(s) and produce output text.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use serde_json::json;
 
 use crate::backend::{Backend, Caps, Monitor};
@@ -92,7 +92,7 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
 
         Command::Brightness { value: None } => {
             let mut m = select::one(backend.enumerate()?, wanted)?;
-            let level = read_percent(m.monitor.as_mut(), vcp::BRIGHTNESS, "brightness")?;
+            let level = read_percent(m.monitor.as_mut(), vcp::BRIGHTNESS)?;
             Ok(if cli.json {
                 output::json(&json!({ "brightness": level }))
             } else {
@@ -102,7 +102,7 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
 
         Command::Volume { value: None } => {
             let mut m = select::one(backend.enumerate()?, wanted)?;
-            let level = read_percent(m.monitor.as_mut(), vcp::VOLUME, "volume")?;
+            let level = read_percent(m.monitor.as_mut(), vcp::VOLUME)?;
             Ok(if cli.json {
                 output::json(&json!({ "volume": level }))
             } else {
@@ -159,8 +159,7 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
 
         Command::Brightness { value: Some(level) } => {
             let mut m = select::one(backend.enumerate()?, wanted)?;
-            let (before, after) =
-                change_level(m.monitor.as_mut(), vcp::BRIGHTNESS, "brightness", *level)?;
+            let (before, after) = change_level(m.monitor.as_mut(), vcp::BRIGHTNESS, *level)?;
             Ok(if cli.json {
                 output::json(&json!({ "brightness": { "before": before, "after": after } }))
             } else {
@@ -171,7 +170,7 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
         Command::Volume { value: Some(level) } => {
             let mut m = select::one(backend.enumerate()?, wanted)?;
             let monitor = m.monitor.as_mut();
-            let (before, after) = change_level(monitor, vcp::VOLUME, "volume", *level)?;
+            let (before, after) = change_level(monitor, vcp::VOLUME, *level)?;
             // Volume changes never touch mute; just say so when it matters.
             let speakers = read_speakers(monitor);
             Ok(if cli.json {
@@ -214,15 +213,8 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
 }
 
 /// Set or nudge a 0–100 setting; returns the level before and after.
-fn change_level(
-    monitor: &mut dyn Monitor,
-    code: u8,
-    what: &str,
-    level: Level,
-) -> Result<(u16, u16)> {
-    let raw = monitor
-        .read_vcp(code)
-        .with_context(|| format!("couldn't read {what}, so it wasn't changed"))?;
+fn change_level(monitor: &mut dyn Monitor, code: u8, level: Level) -> Result<(u16, u16)> {
+    let raw = monitor.read_vcp(code)?;
     let before = vcp::percent(raw.value, raw.max);
     let after = vcp::apply_level(before, level);
     monitor.write_vcp(code, vcp::from_percent(after, raw.max))?;
@@ -265,23 +257,19 @@ fn read_status(m: &mut Indexed) -> Status {
         monitor: m.index,
         name: monitor.info().name.clone(),
         input: read_input(monitor).ok(),
-        brightness: read_percent(monitor, vcp::BRIGHTNESS, "brightness").ok(),
-        volume: read_percent(monitor, vcp::VOLUME, "volume").ok(),
+        brightness: read_percent(monitor, vcp::BRIGHTNESS).ok(),
+        volume: read_percent(monitor, vcp::VOLUME).ok(),
         speakers: read_speakers(monitor),
     }
 }
 
 fn read_input(monitor: &mut dyn Monitor) -> Result<InputRef> {
-    let raw = monitor
-        .read_vcp(vcp::INPUT)
-        .context("couldn't read the active input")?;
+    let raw = monitor.read_vcp(vcp::INPUT)?;
     Ok(InputRef::new(vcp::current_input(raw.value)))
 }
 
-fn read_percent(monitor: &mut dyn Monitor, code: u8, what: &str) -> Result<u16> {
-    let raw = monitor
-        .read_vcp(code)
-        .with_context(|| format!("couldn't read {what}"))?;
+fn read_percent(monitor: &mut dyn Monitor, code: u8) -> Result<u16> {
+    let raw = monitor.read_vcp(code)?;
     Ok(vcp::percent(raw.value, raw.max))
 }
 
@@ -558,10 +546,7 @@ mod tests {
             "{:#}",
             run_with(vec![FakeMonitor::named("DELL P2419H")], &["volume", "50"]).unwrap_err()
         );
-        assert_eq!(
-            err,
-            "couldn't read volume, so it wasn't changed: couldn't read setting 0x62 from DELL P2419H"
-        );
+        assert_eq!(err, "couldn't read volume (VCP 0x62) from DELL P2419H");
     }
 
     #[test]
@@ -742,7 +727,7 @@ mod tests {
         let err = run_with(vec![m], &["brightness", "50"])
             .unwrap_err()
             .to_string();
-        assert!(err.starts_with("couldn't change setting 0x10"), "{err}");
+        assert_eq!(err, "couldn't change brightness (VCP 0x10) on DELL U3425WE");
     }
 
     #[test]

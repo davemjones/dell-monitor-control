@@ -7,6 +7,18 @@ pub const INPUT: u8 = 0x60;
 pub const VOLUME: u8 = 0x62;
 pub const MUTE: u8 = 0x8D;
 
+/// How errors name a VCP code, e.g. "brightness (VCP 0x10)".
+pub fn feature_name(code: u8) -> String {
+    let name = match code {
+        BRIGHTNESS => "brightness",
+        INPUT => "the active input",
+        VOLUME => "volume",
+        MUTE => "speaker mute",
+        _ => "setting",
+    };
+    format!("{name} (VCP {code:#04x})")
+}
+
 /// Known input codes. 0x19 is what Dell uses for its Thunderbolt/USB-C port
 /// (confirmed on the U3425WE); the rest follow the MCCS standard.
 const INPUTS: &[(u8, &str)] = &[

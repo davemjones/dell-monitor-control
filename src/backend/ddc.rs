@@ -8,6 +8,8 @@ use anyhow::{Result, anyhow};
 use ddc_hi::{Ddc, Display, DisplayInfo};
 
 use super::{Backend, Caps, Monitor, MonitorInfo, VcpValue};
+use crate::select::DDC_HINT;
+use crate::vcp;
 
 pub struct DdcHiBackend {
     /// Look up serial numbers outside DDC/CI where the platform needs it.
@@ -113,7 +115,8 @@ impl Monitor for DdcHiMonitor {
         let handle = &mut self.display.handle;
         let v = retry(|| handle.get_vcp_feature(code)).map_err(|e| {
             anyhow!(
-                "couldn't read setting {code:#04x} from {}: {e}",
+                "couldn't read {} from {}: {e}\nhint: {DDC_HINT}",
+                vcp::feature_name(code),
                 self.info.name
             )
         })?;
@@ -124,21 +127,25 @@ impl Monitor for DdcHiMonitor {
     }
 
     fn write_vcp(&mut self, code: u8, value: u16) -> Result<()> {
-        self.display
-            .handle
-            .set_vcp_feature(code, value)
-            .map_err(|e| {
-                anyhow!(
-                    "couldn't change setting {code:#04x} on {}: {e}",
-                    self.info.name
-                )
-            })
+        // Every write sets an absolute value, so repeating one is harmless.
+        let handle = &mut self.display.handle;
+        retry(|| handle.set_vcp_feature(code, value)).map_err(|e| {
+            anyhow!(
+                "couldn't change {} on {}: {e}\nhint: {DDC_HINT}",
+                vcp::feature_name(code),
+                self.info.name
+            )
+        })
     }
 
     fn capabilities(&mut self) -> Result<Caps> {
         let handle = &mut self.display.handle;
-        let raw = retry(|| handle.capabilities_string())
-            .map_err(|e| anyhow!("couldn't read capabilities from {}: {e}", self.info.name))?;
+        let raw = retry(|| handle.capabilities_string()).map_err(|e| {
+            anyhow!(
+                "couldn't read the list of supported settings from {}: {e}\nhint: {DDC_HINT}",
+                self.info.name
+            )
+        })?;
         Caps::parse(&raw)
     }
 }

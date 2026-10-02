@@ -89,13 +89,21 @@ impl Monitor for FakeMonitor {
     fn read_vcp(&mut self, code: u8) -> Result<VcpValue> {
         match self.values.get(&code) {
             Some(v) => Ok(*v),
-            None => bail!("couldn't read setting {code:#04x} from {}", self.info.name),
+            None => bail!(
+                "couldn't read {} from {}",
+                crate::vcp::feature_name(code),
+                self.info.name
+            ),
         }
     }
 
     fn write_vcp(&mut self, code: u8, value: u16) -> Result<()> {
         if self.read_only {
-            bail!("couldn't change setting {code:#04x} on {}", self.info.name);
+            bail!(
+                "couldn't change {} on {}",
+                crate::vcp::feature_name(code),
+                self.info.name
+            );
         }
         self.writes.borrow_mut().push((code, value));
         let max = self.values.get(&code).map_or(100, |v| v.max);
@@ -106,7 +114,10 @@ impl Monitor for FakeMonitor {
     fn capabilities(&mut self) -> Result<Caps> {
         match self.caps {
             Some(raw) => Caps::parse(raw.as_bytes()),
-            None => bail!("couldn't read capabilities from {}", self.info.name),
+            None => bail!(
+                "couldn't read the list of supported settings from {}",
+                self.info.name
+            ),
         }
     }
 }

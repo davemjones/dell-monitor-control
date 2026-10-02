@@ -4,7 +4,19 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[command(
     name = "dellctl",
     version,
-    about = "Control a Dell monitor's input, brightness, and speakers over DDC/CI"
+    about = "Control a Dell monitor's input, brightness, and speakers over DDC/CI",
+    long_about = "Control a Dell monitor's input, brightness, and speakers over DDC/CI.\n\n\
+        With one Dell connected, every command targets it automatically. \
+        DDC/CI must be enabled in the monitor's on-screen menu (Others → DDC/CI).",
+    after_help = "Examples:
+  dellctl                       Show input, brightness, volume, and speakers
+  dellctl list                  List connected monitors
+  dellctl input set hdmi        Switch to HDMI
+  dellctl brightness +10        Raise brightness by 10
+  dellctl volume 30             Set speaker volume to 30
+  dellctl speaker toggle        Mute or unmute the speakers
+  dellctl status --json         Print status as JSON
+  dellctl -m U3425 brightness   Pick a monitor by model"
 )]
 pub struct Cli {
     /// Monitor to control: its number from `dellctl list`, or part of its model name
@@ -23,13 +35,13 @@ pub struct Cli {
 pub enum Command {
     /// Show input, brightness, volume, and speaker state (the default command)
     Status,
-    /// List connected monitors
+    /// List connected monitors and their numbers for --monitor
     List {
         /// Also show which controls each monitor supports
         #[arg(long, short)]
         verbose: bool,
     },
-    /// Show the active input, list inputs, or switch input
+    /// Show the active input, list inputs, or switch input (hdmi, dp, thunderbolt / usb-c)
     Input {
         #[command(subcommand)]
         action: Option<InputAction>,
@@ -46,8 +58,9 @@ pub enum Command {
         #[arg(allow_hyphen_values = true, value_parser = parse_level)]
         value: Option<Level>,
     },
-    /// Show the speaker state, or turn the built-in speakers on, off, or toggle them
+    /// Show or change whether the built-in speakers are muted (on, off, or toggle)
     Speaker {
+        /// on unmutes, off mutes, toggle flips (omit to show the current state)
         #[arg(value_enum)]
         state: Option<SpeakerState>,
     },
@@ -57,9 +70,9 @@ pub enum Command {
 pub enum InputAction {
     /// List the inputs this monitor supports; the active one is marked with *
     List,
-    /// Switch to an input by name (hdmi, dp, thunderbolt, usb-c, …) or raw code (e.g. 0x0f)
+    /// Switch to an input by name (hdmi, dp, thunderbolt, usb-c, …) or raw code (e.g. 0x11)
     Set {
-        /// Input name or alias (hdmi, dp, displayport, thunderbolt, usb-c, tb) or raw code (0x0f)
+        /// Input name or alias (hdmi, dp, displayport, thunderbolt, usb-c, tb) or raw code (e.g. 0x11)
         input: String,
     },
 }

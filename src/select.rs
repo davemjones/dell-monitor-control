@@ -100,9 +100,11 @@ fn listing(candidates: &[Indexed]) -> String {
         .join("\n")
 }
 
+/// What to check when a monitor can't be reached over DDC/CI at all.
+pub const DDC_HINT: &str = "make sure DDC/CI is enabled in the monitor's on-screen menu (Others → DDC/CI); \
+     some docks, adapters, and KVM switches block DDC/CI, so try a direct cable";
+
 fn no_monitors_message() -> String {
-    const MENU_AND_CABLES: &str = "make sure DDC/CI is enabled in the monitor's on-screen menu (Others → DDC/CI); \
-         some docks, adapters, and KVM switches block DDC/CI, so try a direct cable";
     // On Linux, a missing i2c-dev module or I²C permissions are diagnosed
     // separately by the backend, so by this point the devices look fine.
     let extra = if cfg!(target_os = "windows") {
@@ -110,7 +112,7 @@ fn no_monitors_message() -> String {
     } else {
         ""
     };
-    format!("no DDC/CI-capable monitors found\nhint: {MENU_AND_CABLES}{extra}")
+    format!("no DDC/CI-capable monitors found\nhint: {DDC_HINT}{extra}")
 }
 
 #[cfg(test)]

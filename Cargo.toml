@@ -2,6 +2,12 @@
 name = "dellctl"
 version = "0.1.0"
 edition = "2024"
+description = "Control a Dell monitor's input, brightness, and speakers from the terminal over DDC/CI"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/davemjones/dell-monitor-control"
+readme = "README.md"
+keywords = ["dell", "monitor", "ddc", "brightness", "cli"]
+categories = ["command-line-utilities", "hardware-support"]
 
 [dependencies]
 anyhow = "1.0.104"
@@ -11,7 +17,7 @@ ddc-hi = { version = "0.4", default-features = false, features = ["ddc-i2c", "dd
 mccs = "0.1"
 mccs-caps = "0.1"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1.10.1"
@@ -23,3 +29,8 @@ windows-sys = { version = "0.61", features = [
     "Win32_Graphics_Gdi",
     "Win32_System_Registry",
 ] }
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
