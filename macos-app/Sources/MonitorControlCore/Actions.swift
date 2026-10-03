@@ -1,14 +1,14 @@
 import Foundation
 
-/// dellctl's own message for a failed run: the JSON error's message, or its
-/// raw stderr if that isn't JSON.
+/// dellctl's own message for a failed run, in sentence case for the panel: the
+/// JSON error's message, or its raw stderr if that isn't JSON.
 func errorMessage(_ stderr: Data) -> String {
-    if let error = ErrorPayload.decode(stderr) {
-        return error.message
-    }
-    let text = String(decoding: stderr, as: UTF8.self)
+    let text =
+        ErrorPayload.decode(stderr)?.message
+        ?? String(decoding: stderr, as: UTF8.self)
         .trimmingCharacters(in: .whitespacesAndNewlines)
-    return text.isEmpty ? "dellctl stopped without saying why." : text
+    guard let first = text.first else { return "dellctl stopped without saying why." }
+    return first.uppercased() + text.dropFirst()
 }
 
 /// Why a change (switching input, setting brightness) didn't happen, or nil

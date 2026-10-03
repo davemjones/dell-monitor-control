@@ -2,6 +2,8 @@
 
 Control a Dell monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Arch Linux.
 
+On macOS there's also a [menu bar app](#menu-bar-app-macos), **Monitor Control**, for switching inputs and adjusting brightness without a terminal.
+
 ```console
 $ dellctl
 DELL U3425WE (monitor 1)
@@ -238,6 +240,37 @@ The output shapes:
 
 Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 
+## Menu bar app (macOS)
+
+**Monitor Control** puts a monitor icon in the macOS menu bar. Click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It has no Dock icon or window. It does everything by running its own bundled copy of `dellctl`, so it behaves exactly like the command line.
+
+### Build it
+
+You need [Rust](https://rustup.rs) and Apple's Command Line Tools (`xcode-select --install`). The full Xcode app isn't needed. Then:
+
+```sh
+./macos-app/build.sh
+```
+
+This builds `dellctl` and the app, puts `dellctl` inside it, and leaves `Monitor Control.app` in `target/`.
+
+### Install it
+
+1. Drag `target/Monitor Control.app` into `/Applications` (or run `cp -R "target/Monitor Control.app" /Applications/`).
+2. Open it from `/Applications`. The monitor icon appears in the menu bar.
+3. To start it automatically, tick **Launch at login** at the bottom of its panel. It's added to System Settings › General › Login Items, where you can also turn it off. Turn it on from the copy in `/Applications`, since the login item remembers where the app was.
+
+The app isn't signed by a registered developer. An app you build yourself opens normally. If you copy it from another Mac and macOS blocks it, right-click it and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Monitor Control.app"` (see [above](#macos-unidentified-developer-warning)).
+
+### Good to know
+
+- **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
+- **One monitor:** the app controls the single Dell `dellctl` picks automatically. With several DDC/CI monitors connected it says so instead.
+- **No volume controls** in the app yet; use `dellctl volume` and `dellctl speaker`.
+- Readings are taken each time the panel opens, so changes made with the monitor's buttons show up the next time you open it.
+
+To run the app's tests: `swift test --package-path macos-app`.
+
 ## Build from source
 
 You need [Rust](https://rustup.rs) (stable). Then, on any platform:
@@ -266,6 +299,7 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 - **The U3425WE keeps a separate brightness for each input.** `dellctl brightness` reads and sets the brightness of the input that's currently showing.
 - **Windows and Linux** builds are tested automatically, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
 - **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs, Windows on ARM, and Linux on ARM aren't supported.
+- **The menu bar app is macOS-only** and isn't signed or notarized. There's no tray app for Windows or Linux.
 - Only input, brightness, volume, and mute are supported. Contrast, color presets, KVM, and PbP/PiP aren't.
 
 ## Troubleshooting

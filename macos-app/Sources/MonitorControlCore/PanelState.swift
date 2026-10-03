@@ -19,7 +19,7 @@ public enum Problem: Equatable, Sendable {
         case .multipleMonitors: "Multiple monitors found — not supported yet."
         case .unreachable(let name): "Can't reach \(name)"
         case .timedOut: "The monitor didn't respond."
-        case .failed: "Something went wrong"
+        case .failed: "Couldn't read the monitor"
         }
     }
 

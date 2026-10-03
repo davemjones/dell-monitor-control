@@ -16,6 +16,9 @@ final class StatusModel {
     private(set) var actionError: String?
     /// The input row under the pointer.
     var hoveredInput: String?
+    private(set) var loginItem = LoginItem.state
+    /// Why the last Launch at login change didn't happen.
+    private(set) var loginItemError: String?
 
     @ObservationIgnored weak var panelWindow: NSWindow?
     @ObservationIgnored private var refreshing = false
@@ -31,6 +34,9 @@ final class StatusModel {
         refreshing = true
         state = .loading
         actionError = nil
+        // May have changed in System Settings since the panel last opened.
+        loginItem = LoginItem.state
+        loginItemError = nil
         serial { [self] in
             state = PanelState(statusResult: await dellctl.run(["status", "--json"]))
             if case .ready(let status) = state {
@@ -85,6 +91,16 @@ final class StatusModel {
                 write(next)
             }
         }
+    }
+
+    func setLaunchAtLogin(_ on: Bool) {
+        do {
+            try LoginItem.set(on)
+            loginItemError = nil
+        } catch {
+            loginItemError = "Couldn't change Login Items: \(error.localizedDescription)"
+        }
+        loginItem = LoginItem.state
     }
 
     /// Runs `job` after every earlier one, so only one dellctl talks to the

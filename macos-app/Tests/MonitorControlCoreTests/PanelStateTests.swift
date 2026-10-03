@@ -66,10 +66,10 @@ private let u3425we = """
     let other = #"{"error":{"kind":"failed","message":"couldn't read brightness"}}"#
     #expect(
         PanelState(statusResult: finished(1, stderr: other))
-            == .problem(.failed(message: "couldn't read brightness")))
+            == .problem(.failed(message: "Couldn't read brightness")))
     #expect(
         PanelState(statusResult: finished(1, stderr: "error: boom\n"))
-            == .problem(.failed(message: "error: boom")))
+            == .problem(.failed(message: "Error: boom")))
 }
 
 @Test func launchAndTimeout() {

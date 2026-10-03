@@ -18,8 +18,8 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
 @Test func failureMessages() {
     #expect(failureMessage(of: finished(0, stdout: "{}")) == nil)
     let err = #"{"error":{"kind":"failed","message":"couldn't change brightness"}}"#
-    #expect(failureMessage(of: finished(1, stderr: err)) == "couldn't change brightness")
-    #expect(failureMessage(of: finished(1, stderr: "error: boom")) == "error: boom")
+    #expect(failureMessage(of: finished(1, stderr: err)) == "Couldn't change brightness")
+    #expect(failureMessage(of: finished(1, stderr: "error: boom")) == "Error: boom")
     #expect(failureMessage(of: .timedOut) == Problem.timedOut.title)
     #expect(failureMessage(of: .launchFailed) == Problem.cantRunDellctl.title)
 }

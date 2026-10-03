@@ -30,8 +30,7 @@ struct PanelView: View {
                 ProblemView(problem: problem, retry: model.refresh)
             }
             Divider()
-            Button("Quit Monitor Control") { NSApplication.shared.terminate(nil) }
-                .buttonStyle(.plain)
+            Footer(model: model)
         }
         .padding(14)
         .frame(width: 280)
@@ -53,6 +52,42 @@ struct PanelView: View {
             Spacer()
             if model.state == .loading {
                 ProgressView().controlSize(.small)
+            }
+        }
+    }
+}
+
+private struct Footer: View {
+    let model: StatusModel
+
+    private static let version =
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(
+                "Launch at login",
+                isOn: Binding(get: { model.loginItem == .on }, set: model.setLaunchAtLogin)
+            )
+            .toggleStyle(.checkbox)
+            if model.loginItem == .needsApproval {
+                Button("Allow in Login Items…", action: LoginItem.openSettings)
+                    .buttonStyle(.link)
+                    .font(.callout)
+            }
+            if let error = model.loginItemError {
+                Text(error)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Button("Quit Monitor Control") { NSApplication.shared.terminate(nil) }
+                    .buttonStyle(.plain)
+                Spacer()
+                Text("Version \(Self.version)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

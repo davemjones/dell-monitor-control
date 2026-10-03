@@ -14,10 +14,23 @@ echo "Building Monitor Control…"
 swift build -c release --package-path "$repo/macos-app"
 bin=$(swift build -c release --package-path "$repo/macos-app" --show-bin-path)
 
+# The icon is slow to draw, so only redraw it when its script changes.
+icon="$repo/target/AppIcon.icns"
+icon_script="$repo/macos-app/Icon/make-icon.swift"
+if [ ! -f "$icon" ] || [ "$icon_script" -nt "$icon" ]; then
+    echo "Drawing the app icon…"
+    iconset="$repo/target/AppIcon.iconset"
+    rm -rf "$iconset"
+    swift "$icon_script" "$iconset"
+    iconutil -c icns "$iconset" -o "$icon"
+    rm -rf "$iconset"
+fi
+
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Resources"
 cp "$bin/MonitorControl" "$app/Contents/MacOS/MonitorControl"
 cp "$repo/target/release/dellctl" "$app/Contents/Helpers/dellctl"
+cp "$icon" "$app/Contents/Resources/AppIcon.icns"
 
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -26,6 +39,8 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleExecutable</key>
     <string>MonitorControl</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.davemjones.monitor-control</string>
     <key>CFBundleName</key>
@@ -53,3 +68,5 @@ codesign --force --sign - "$app/Contents/Helpers/dellctl"
 codesign --force --sign - "$app"
 
 echo "Built $app"
+echo "Install it by dragging it into /Applications, or try it in place with:"
+echo "  open \"$app\""
