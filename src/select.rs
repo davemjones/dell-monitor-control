@@ -3,6 +3,7 @@
 use anyhow::{Result, bail};
 
 use crate::backend::Monitor;
+use crate::failure::{Failure, FailureKind};
 
 /// A monitor together with its 1-based number from `dellctl list`.
 pub struct Indexed {
@@ -27,7 +28,7 @@ pub fn index(monitors: Vec<Box<dyn Monitor>>) -> Vec<Indexed> {
 pub fn one(monitors: Vec<Box<dyn Monitor>>, wanted: Option<&str>) -> Result<Indexed> {
     let mut candidates = index(monitors);
     if candidates.is_empty() {
-        bail!(no_monitors_message());
+        bail!(Failure::new(FailureKind::NoMonitor, no_monitors_message()));
     }
 
     if let Some(wanted) = wanted {
@@ -44,10 +45,13 @@ pub fn one(monitors: Vec<Box<dyn Monitor>>, wanted: Option<&str>) -> Result<Inde
     if let [only] = dells[..] {
         return Ok(candidates.remove(only - 1));
     }
-    bail!(
-        "several monitors are connected; choose one with --monitor:\n{}",
-        listing(&candidates)
-    )
+    bail!(Failure::new(
+        FailureKind::MultipleMonitors,
+        format!(
+            "several monitors are connected; choose one with --monitor:\n{}",
+            listing(&candidates)
+        )
+    ))
 }
 
 /// For `status`: every monitor when none was chosen, otherwise the chosen one.
@@ -57,7 +61,7 @@ pub fn all_or_one(monitors: Vec<Box<dyn Monitor>>, wanted: Option<&str>) -> Resu
     }
     let all = index(monitors);
     if all.is_empty() {
-        bail!(no_monitors_message());
+        bail!(Failure::new(FailureKind::NoMonitor, no_monitors_message()));
     }
     Ok(all)
 }

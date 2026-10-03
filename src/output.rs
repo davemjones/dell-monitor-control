@@ -22,6 +22,8 @@ pub struct Status {
     pub monitor: usize,
     pub name: String,
     pub input: Option<InputRef>,
+    /// Supported inputs; only read for `--json`, and `null` when unreadable.
+    pub inputs: Option<Vec<InputEntry>>,
     pub brightness: Option<u16>,
     pub volume: Option<u16>,
     pub speakers: Option<&'static str>,

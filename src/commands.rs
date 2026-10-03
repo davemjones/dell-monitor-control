@@ -5,6 +5,7 @@ use serde_json::json;
 
 use crate::backend::{Backend, Caps, Monitor};
 use crate::cli::{Cli, Command, InputAction, Level, SpeakerState};
+use crate::failure::{Failure, FailureKind};
 use crate::output::{self, Controls, InputEntry, InputRef, ListEntry, Status};
 use crate::select::{self, Indexed};
 use crate::vcp;
@@ -17,7 +18,8 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
         Command::Status => {
             let statuses: Vec<Status> = select::all_or_one(backend.enumerate()?, wanted)?
                 .iter_mut()
-                .map(read_status)
+                // Capabilities are slow to read, so only JSON lists the inputs.
+                .map(|m| read_status(m, cli.json))
                 .collect();
             Ok(match (cli.json, &statuses[..]) {
                 (true, [single]) => output::json(single),
@@ -64,25 +66,7 @@ pub fn run(cli: &Cli, backend: &dyn Backend) -> Result<String> {
             action: Some(InputAction::List),
         } => {
             let mut m = select::one(backend.enumerate()?, wanted)?;
-            let caps = m.monitor.capabilities()?;
-            let codes = caps.features.get(&vcp::INPUT).filter(|c| !c.is_empty());
-            let Some(codes) = codes else {
-                bail!(
-                    "{} doesn't report its inputs over DDC/CI",
-                    m.monitor.info().name
-                );
-            };
-            let active = read_input(m.monitor.as_mut()).ok();
-            let entries: Vec<InputEntry> = codes
-                .iter()
-                .map(|&code| {
-                    let input = InputRef::new(code);
-                    InputEntry {
-                        active: active.as_ref() == Some(&input),
-                        input,
-                    }
-                })
-                .collect();
+            let entries = read_inputs(m.monitor.as_mut())?;
             Ok(if cli.json {
                 output::json(&entries)
             } else {
@@ -221,10 +205,13 @@ fn change_level(monitor: &mut dyn Monitor, code: u8, level: Level) -> Result<(u1
     Ok((before, after))
 }
 
-fn mute_unsupported(monitor: &dyn Monitor) -> String {
-    format!(
-        "{} doesn't support speaker mute over DDC/CI; try `dellctl volume 0` instead",
-        monitor.info().name
+fn mute_unsupported(monitor: &dyn Monitor) -> Failure {
+    Failure::new(
+        FailureKind::Unsupported,
+        format!(
+            "{} doesn't support speaker mute over DDC/CI; try `dellctl volume 0` instead",
+            monitor.info().name
+        ),
     )
 }
 
@@ -251,16 +238,42 @@ fn unknown_input(arg: &str, monitor: &dyn Monitor, supported: Option<&[u8]>) -> 
 }
 
 /// Read everything `status` shows; anything unreadable becomes `n/a`.
-fn read_status(m: &mut Indexed) -> Status {
+fn read_status(m: &mut Indexed, with_inputs: bool) -> Status {
     let monitor = m.monitor.as_mut();
     Status {
         monitor: m.index,
         name: monitor.info().name.clone(),
         input: read_input(monitor).ok(),
+        inputs: with_inputs.then(|| read_inputs(monitor).ok()).flatten(),
         brightness: read_percent(monitor, vcp::BRIGHTNESS).ok(),
         volume: read_percent(monitor, vcp::VOLUME).ok(),
         speakers: read_speakers(monitor),
     }
+}
+
+/// The inputs the monitor supports, with the active one marked.
+fn read_inputs(monitor: &mut dyn Monitor) -> Result<Vec<InputEntry>> {
+    let caps = monitor.capabilities()?;
+    let Some(codes) = caps.features.get(&vcp::INPUT).filter(|c| !c.is_empty()) else {
+        bail!(Failure::new(
+            FailureKind::Unsupported,
+            format!(
+                "{} doesn't report its inputs over DDC/CI",
+                monitor.info().name
+            )
+        ));
+    };
+    let active = read_input(monitor).ok();
+    Ok(codes
+        .iter()
+        .map(|&code| {
+            let input = InputRef::new(code);
+            InputEntry {
+                active: active.as_ref() == Some(&input),
+                input,
+            }
+        })
+        .collect())
 }
 
 fn read_input(monitor: &mut dyn Monitor) -> Result<InputRef> {
@@ -324,11 +337,66 @@ mod tests {
                 "monitor": 1,
                 "name": "DELL U3425WE",
                 "input": { "name": "thunderbolt", "code": "0x19" },
+                "inputs": [
+                    { "name": "dp", "code": "0x0f", "active": false },
+                    { "name": "hdmi", "code": "0x11", "active": false },
+                    { "name": "thunderbolt", "code": "0x19", "active": true }
+                ],
                 "brightness": 78,
                 "volume": 88,
                 "speakers": null
             })
         );
+    }
+
+    #[test]
+    fn status_json_inputs_are_null_without_caps() {
+        let out: serde_json::Value = serde_json::from_str(
+            &run_with(
+                vec![FakeMonitor::named("DELL P2419H")],
+                &["status", "--json"],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(out["inputs"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn errors_carry_a_kind() {
+        use crate::failure::kind_of;
+        let kind = |monitors, args: &[&str]| kind_of(&run_with(monitors, args).unwrap_err());
+        assert_eq!(kind(vec![], &["status"]), FailureKind::NoMonitor);
+        assert_eq!(
+            kind(
+                vec![FakeMonitor::u3425we(), FakeMonitor::u3425we()],
+                &["brightness"]
+            ),
+            FailureKind::MultipleMonitors
+        );
+        let no_inputs = FakeMonitor {
+            caps: Some("(prot(monitor)vcp(10 12))"),
+            ..FakeMonitor::named("DELL P2419H")
+        };
+        assert_eq!(
+            kind(vec![no_inputs], &["input", "list"]),
+            FailureKind::Unsupported
+        );
+        // Unreadable capabilities are a failure, not a missing feature.
+        assert_eq!(
+            kind(vec![FakeMonitor::named("DELL P2419H")], &["input", "list"]),
+            FailureKind::Failed
+        );
+        assert_eq!(kind(dell(), &["speaker"]), FailureKind::Unsupported);
+        assert_eq!(
+            kind(dell(), &["-m", "9", "brightness"]),
+            FailureKind::Failed
+        );
+
+        let err = run_with(vec![], &["status", "--json"]).unwrap_err();
+        let json: serde_json::Value = serde_json::from_str(&crate::failure::json(&err)).unwrap();
+        assert_eq!(json["error"]["kind"], "no_monitor");
+        assert!(json["error"]["message"].as_str().unwrap().contains("hint:"));
     }
 
     #[test]

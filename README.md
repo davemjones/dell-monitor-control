@@ -208,6 +208,11 @@ $ dellctl status --json
     "name": "thunderbolt",
     "code": "0x19"
   },
+  "inputs": [
+    { "name": "dp", "code": "0x0f", "active": false },
+    { "name": "hdmi", "code": "0x11", "active": false },
+    { "name": "thunderbolt", "code": "0x19", "active": true }
+  ],
   "brightness": 78,
   "volume": 88,
   "speakers": null
@@ -224,11 +229,12 @@ $ dellctl brightness +5 --json
 
 The output shapes:
 
-- `status --json` returns an object for one monitor and an array when it shows several.
+- `status --json` returns an object for one monitor and an array when it shows several. It also lists the supported inputs under `"inputs"` (`null` if the monitor doesn't report them), which the text output skips because reading them takes about a second.
 - `list` and `input list` always return arrays.
 - `input set` returns `{"before": …, "after": …, "changed": true|false}`.
 - `speaker` changes return `{"speakers": {"before": …, "after": …}}`.
 - `volume` changes also include `"speakers"`, so scripts can tell whether the speakers are muted.
+- Errors go to stderr as `{"error": {"kind": …, "message": …}}`, with a non-zero exit code. `kind` is one of `no_monitor`, `multiple_monitors`, `unsupported`, or `failed`.
 
 Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 

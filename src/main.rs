@@ -1,6 +1,7 @@
 mod backend;
 mod cli;
 mod commands;
+mod failure;
 mod output;
 mod select;
 mod vcp;
@@ -22,6 +23,10 @@ fn main() -> ExitCode {
         Ok(out) => {
             println!("{out}");
             ExitCode::SUCCESS
+        }
+        Err(err) if cli.json => {
+            eprintln!("{}", failure::json(&err));
+            ExitCode::FAILURE
         }
         Err(err) => {
             eprintln!("error: {err:#}");
