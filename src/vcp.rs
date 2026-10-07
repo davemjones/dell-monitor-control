@@ -19,8 +19,9 @@ pub fn feature_name(code: u8) -> String {
     format!("{name} (VCP {code:#04x})")
 }
 
-/// Known input codes. 0x19 is what Dell uses for its Thunderbolt/USB-C port
-/// (confirmed on the U3425WE); the rest follow the MCCS standard.
+/// Known input codes. 0x19 is a vendor-specific code some monitors use for
+/// their Thunderbolt/USB-C port (confirmed on the U3425WE); the rest follow
+/// the MCCS standard.
 const INPUTS: &[(u8, &str)] = &[
     (0x01, "vga"),
     (0x03, "dvi"),

@@ -1,27 +1,27 @@
 import Foundation
 
-/// What happened when the app ran dellctl.
+/// What happened when the app ran monitorctl.
 public enum RunResult: Sendable, Equatable {
     case finished(exitCode: Int32, stdout: Data, stderr: Data)
     case launchFailed
     case timedOut
 }
 
-/// The dellctl command-line tool bundled inside the app. All monitor reading
+/// The monitorctl command-line tool bundled inside the app. All monitor reading
 /// and control goes through it.
-public struct Dellctl: Sendable {
+public struct Monitorctl: Sendable {
     public let executable: URL
 
     public init(executable: URL) {
         self.executable = executable
     }
 
-    /// The copy at `Monitor Control.app/Contents/Helpers/dellctl`.
-    public static func bundled(in bundle: Bundle = .main) -> Dellctl {
-        Dellctl(executable: bundle.bundleURL.appending(path: "Contents/Helpers/dellctl"))
+    /// The copy at `Monitor Control.app/Contents/Helpers/monitorctl`.
+    public static func bundled(in bundle: Bundle = .main) -> Monitorctl {
+        Monitorctl(executable: bundle.bundleURL.appending(path: "Contents/Helpers/monitorctl"))
     }
 
-    /// Runs dellctl with `args`, giving up (and stopping it) after `timeout` seconds.
+    /// Runs monitorctl with `args`, giving up (and stopping it) after `timeout` seconds.
     public func run(_ args: [String], timeout: TimeInterval = 10) async -> RunResult {
         let job = Job(executable: executable, args: args, timeout: timeout)
         return await withCheckedContinuation { continuation in
@@ -64,7 +64,7 @@ public struct Dellctl: Sendable {
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
 
-            // Drain stderr alongside stdout so neither pipe can fill up and stall dellctl.
+            // Drain stderr alongside stdout so neither pipe can fill up and stall monitorctl.
             let drained = DispatchSemaphore(value: 0)
             DispatchQueue.global().async { [self] in
                 stderr = err.fileHandleForReading.readDataToEndOfFile()

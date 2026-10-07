@@ -1,27 +1,27 @@
-# dellctl
+# monitorctl
 
-Control a Dell monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Arch Linux.
+Control a monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Arch Linux.
 
 On macOS there's also a [menu bar app](#menu-bar-app-macos), **Monitor Control**, for switching inputs and adjusting brightness without a terminal.
 
 ```console
-$ dellctl
+$ monitorctl
 DELL U3425WE (monitor 1)
   Input:      thunderbolt
   Brightness: 78
   Volume:     88
   Speakers:   n/a
 
-$ dellctl input set hdmi
+$ monitorctl input set hdmi
 Switched to hdmi
 
-$ dellctl brightness +10
+$ monitorctl brightness +10
 Brightness: 78 → 88
 ```
 
-`dellctl` talks to the monitor over **DDC/CI**, a standard control channel that runs over the video cable (HDMI, DisplayPort, or USB-C/Thunderbolt). There's no daemon, no config file, and no account. Each command reads the monitor live, does one thing, and exits.
+`monitorctl` talks to the monitor over **DDC/CI**, a standard control channel that runs over the video cable (HDMI, DisplayPort, or USB-C/Thunderbolt). There's no daemon, no config file, and no account. Each command reads the monitor live, does one thing, and exits.
 
-**Tested model:** Dell U3425WE (34" curved ultrawide). Other Dell monitors that expose the same DDC/CI controls should work but aren't promised. Non-Dell monitors may work too, since DDC/CI is a standard.
+**Tested model:** Dell U3425WE (34" curved ultrawide). Since DDC/CI is a standard, other monitors that expose the same controls should work too, but they aren't promised.
 
 ## Install
 
@@ -29,11 +29,11 @@ Download the archive for your platform from the [latest release](https://github.
 
 | Platform | File |
 |---|---|
-| macOS (Apple Silicon) | `dellctl-vX.Y.Z-macos-arm64.tar.gz` |
-| Windows 11 (x64) | `dellctl-vX.Y.Z-windows-x64.zip` |
-| Linux (x64), e.g. Arch | `dellctl-vX.Y.Z-linux-x64.tar.gz` |
+| macOS (Apple Silicon) | `monitorctl-vX.Y.Z-macos-arm64.tar.gz` |
+| Windows 11 (x64) | `monitorctl-vX.Y.Z-windows-x64.zip` |
+| Linux (x64), e.g. Arch | `monitorctl-vX.Y.Z-linux-x64.tar.gz` |
 
-Each archive contains a single standalone `dellctl` binary (`dellctl.exe` on Windows). Put it somewhere on your `PATH`.
+Each archive contains a single standalone `monitorctl` binary (`monitorctl.exe` on Windows). Put it somewhere on your `PATH`.
 
 To check a download, compare it against `SHA256SUMS` from the same release:
 
@@ -43,7 +43,7 @@ sha256sum -c SHA256SUMS --ignore-missing          # Linux
 ```
 
 ```powershell
-Get-FileHash .\dellctl-vX.Y.Z-windows-x64.zip     # Windows: compare with SHA256SUMS
+Get-FileHash .\monitorctl-vX.Y.Z-windows-x64.zip     # Windows: compare with SHA256SUMS
 ```
 
 ### macOS: "unidentified developer" warning
@@ -51,7 +51,7 @@ Get-FileHash .\dellctl-vX.Y.Z-windows-x64.zip     # Windows: compare with SHA256
 The macOS binary isn't signed or notarized, so the first run may be blocked. Remove the quarantine flag once:
 
 ```sh
-xattr -d com.apple.quarantine ./dellctl
+xattr -d com.apple.quarantine ./monitorctl
 ```
 
 You can also allow it under **System Settings → Privacy & Security** after the first blocked attempt.
@@ -77,39 +77,39 @@ On Linux, DDC/CI goes through the kernel's I²C devices (`/dev/i2c-*`), and you 
 
 3. Log out and back in (or reboot) so the group membership takes effect.
 
-If either step is missing, `dellctl` says which one and prints these commands.
+If either step is missing, `monitorctl` says which one and prints these commands.
 
 ### Windows
 
-No setup is needed. `dellctl.exe` uses the built-in Windows monitor-control interface and doesn't need the Visual C++ runtime.
+No setup is needed. `monitorctl.exe` uses the built-in Windows monitor-control interface and doesn't need the Visual C++ runtime.
 
 ### All platforms: enable DDC/CI on the monitor
 
-DDC/CI is on by default on Dell monitors. If it's been turned off, open the monitor's on-screen menu and go to **Others → DDC/CI → On**.
+DDC/CI is on by default on most monitors. If it's been turned off, open the monitor's on-screen menu and turn it back on (on the U3425WE: **Others → DDC/CI → On**).
 
 ## Usage
 
 ```
-dellctl [--monitor <N|MODEL>] [--json] [COMMAND]
+monitorctl [--monitor <N|MODEL>] [--json] [COMMAND]
 ```
 
 | Command | What it does |
 |---|---|
-| `dellctl` / `dellctl status` | Show input, brightness, volume, and speaker state |
-| `dellctl list [--verbose]` | List detected monitors; `--verbose` adds supported controls |
-| `dellctl input` | Show the active input |
-| `dellctl input list` | List the monitor's inputs; the active one is marked `*` |
-| `dellctl input set <name \| code>` | Switch input |
-| `dellctl brightness [value \| +n \| -n]` | Show, set, or nudge brightness (0–100) |
-| `dellctl volume [value \| +n \| -n]` | Show, set, or nudge speaker volume (0–100) |
-| `dellctl speaker [on \| off \| toggle]` | Show or change whether the speakers are muted |
+| `monitorctl` / `monitorctl status` | Show input, brightness, volume, and speaker state |
+| `monitorctl list [--verbose]` | List detected monitors; `--verbose` adds supported controls |
+| `monitorctl input` | Show the active input |
+| `monitorctl input list` | List the monitor's inputs; the active one is marked `*` |
+| `monitorctl input set <name \| code>` | Switch input |
+| `monitorctl brightness [value \| +n \| -n]` | Show, set, or nudge brightness (0–100) |
+| `monitorctl volume [value \| +n \| -n]` | Show, set, or nudge speaker volume (0–100) |
+| `monitorctl speaker [on \| off \| toggle]` | Show or change whether the speakers are muted |
 
-Every command has `--help`, and `dellctl --version` prints the version.
+Every command has `--help`, and `monitorctl --version` prints the version.
 
 ### Status
 
 ```console
-$ dellctl status
+$ monitorctl status
 DELL U3425WE (monitor 1)
   Input:      thunderbolt
   Brightness: 78
@@ -122,20 +122,20 @@ Anything the monitor doesn't support over DDC/CI shows `n/a`. With several monit
 ### Monitors
 
 ```console
-$ dellctl list
+$ monitorctl list
 1  DELL U3425WE  (serial ABC1234)
 
-$ dellctl list --verbose
+$ monitorctl list --verbose
 1  DELL U3425WE  (serial ABC1234)
    supports:      input, brightness, volume
    not supported: speaker mute
 ```
 
-With exactly one monitor, or exactly one Dell, connected, every command targets it automatically. Otherwise pick one with `--monitor` (or `-m`), either by its number from `dellctl list` or by part of its model name:
+With exactly one monitor connected, every command targets it automatically. Otherwise pick one with `--monitor` (or `-m`), either by its number from `monitorctl list` or by part of its model name:
 
 ```sh
-dellctl --monitor 2 brightness 50
-dellctl -m U3425 input set dp
+monitorctl --monitor 2 brightness 50
+monitorctl -m U3425 input set dp
 ```
 
 If several monitors match and none was chosen, commands that change a setting stop and list the monitors instead of guessing.
@@ -143,18 +143,18 @@ If several monitors match and none was chosen, commands that change a setting st
 ### Inputs
 
 ```console
-$ dellctl input
+$ monitorctl input
 Input: thunderbolt [0x19]
 
-$ dellctl input list
+$ monitorctl input list
   dp           [0x0f]
   hdmi         [0x11]
 * thunderbolt  [0x19]
 
-$ dellctl input set hdmi
+$ monitorctl input set hdmi
 Switched to hdmi
 
-$ dellctl input set usb-c
+$ monitorctl input set usb-c
 Already on thunderbolt
 ```
 
@@ -166,21 +166,21 @@ Input names are case-insensitive, and these aliases work:
 | DisplayPort | `dp`, `displayport`, `dp1` |
 | HDMI | `hdmi`, `hdmi1` |
 
-You can also use a raw code, such as `dellctl input set 0x11`. A name or code the monitor doesn't have prints the list of valid inputs.
+You can also use a raw code, such as `monitorctl input set 0x11`. A name or code the monitor doesn't have prints the list of valid inputs.
 
 ### Brightness and volume
 
 ```console
-$ dellctl brightness
+$ monitorctl brightness
 Brightness: 78
 
-$ dellctl brightness 60
+$ monitorctl brightness 60
 Brightness: 78 → 60
 
-$ dellctl brightness +10
+$ monitorctl brightness +10
 Brightness: 60 → 70
 
-$ dellctl volume -8
+$ monitorctl volume -8
 Volume: 88 → 80
 ```
 
@@ -189,20 +189,20 @@ Exact values must be 0–100. Nudges (`+n` / `-n`) stop at 0 and 100 without an 
 ### Speakers
 
 ```sh
-dellctl speaker          # Speakers: on  /  Speakers: muted
-dellctl speaker off      # mute
-dellctl speaker on       # unmute
-dellctl speaker toggle
+monitorctl speaker          # Speakers: on  /  Speakers: muted
+monitorctl speaker off      # mute
+monitorctl speaker on       # unmute
+monitorctl speaker toggle
 ```
 
-Some monitors, including the U3425WE, don't support mute over DDC/CI. On those, `dellctl speaker` says so, and `dellctl volume 0` is the alternative.
+Some monitors, including the U3425WE, don't support mute over DDC/CI. On those, `monitorctl speaker` says so, and `monitorctl volume 0` is the alternative.
 
 ### JSON output
 
 Add `--json` to any command for machine-readable output:
 
 ```console
-$ dellctl status --json
+$ monitorctl status --json
 {
   "monitor": 1,
   "name": "DELL U3425WE",
@@ -220,7 +220,7 @@ $ dellctl status --json
   "speakers": null
 }
 
-$ dellctl brightness +5 --json
+$ monitorctl brightness +5 --json
 {
   "brightness": {
     "before": 78,
@@ -242,7 +242,7 @@ Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 
 ## Menu bar app (macOS)
 
-**Monitor Control** puts a monitor icon in the macOS menu bar. Click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It has no Dock icon or window. It does everything by running its own bundled copy of `dellctl`, so it behaves exactly like the command line.
+**Monitor Control** puts a monitor icon in the macOS menu bar. Click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It has no Dock icon or window. It does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
 
 ### Build it
 
@@ -252,7 +252,7 @@ You need [Rust](https://rustup.rs) and Apple's Command Line Tools (`xcode-select
 ./macos-app/build.sh
 ```
 
-This builds `dellctl` and the app, puts `dellctl` inside it, and leaves `Monitor Control.app` in `target/`.
+This builds `monitorctl` and the app, puts `monitorctl` inside it, and leaves `Monitor Control.app` in `target/`.
 
 ### Install it
 
@@ -265,8 +265,8 @@ The app isn't signed by a registered developer. An app you build yourself opens 
 ### Good to know
 
 - **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
-- **One monitor:** the app controls the single Dell `dellctl` picks automatically. With several DDC/CI monitors connected it says so instead.
-- **No volume controls** in the app yet; use `dellctl volume` and `dellctl speaker`.
+- **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
+- **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
 - Readings are taken each time the panel opens, so changes made with the monitor's buttons show up the next time you open it.
 
 To run the app's tests: `swift test --package-path macos-app`.
@@ -279,7 +279,7 @@ You need [Rust](https://rustup.rs) (stable). Then, on any platform:
 git clone https://github.com/davemjones/dell-monitor-control.git
 cd dell-monitor-control
 cargo build --release
-# the binary is target/release/dellctl (dellctl.exe on Windows)
+# the binary is target/release/monitorctl (monitorctl.exe on Windows)
 ```
 
 Per-platform requirements:
@@ -293,10 +293,10 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 
 ## Known limitations
 
-- **Docks, adapters, and KVM switches** can block DDC/CI. If `dellctl` can't find or talk to the monitor, try a direct cable.
-- **Switching away from the computer running `dellctl`:** on the tested setup (MacBook Pro M1 Pro → U3425WE over Thunderbolt, no dock), the Mac can still reach the monitor while another input is showing, so `dellctl input set thunderbolt` switches back. Other setups may lose DDC/CI after switching away. If so, switch back with the monitor's buttons.
-- **The U3425WE doesn't support speaker mute over DDC/CI.** Use `dellctl volume 0` instead.
-- **The U3425WE keeps a separate brightness for each input.** `dellctl brightness` reads and sets the brightness of the input that's currently showing.
+- **Docks, adapters, and KVM switches** can block DDC/CI. If `monitorctl` can't find or talk to the monitor, try a direct cable.
+- **Switching away from the computer running `monitorctl`:** on the tested setup (MacBook Pro M1 Pro → U3425WE over Thunderbolt, no dock), the Mac can still reach the monitor while another input is showing, so `monitorctl input set thunderbolt` switches back. Other setups may lose DDC/CI after switching away. If so, switch back with the monitor's buttons.
+- **The U3425WE doesn't support speaker mute over DDC/CI.** Use `monitorctl volume 0` instead.
+- **The U3425WE keeps a separate brightness for each input.** `monitorctl brightness` reads and sets the brightness of the input that's currently showing.
 - **Windows and Linux** builds are tested automatically, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
 - **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs, Windows on ARM, and Linux on ARM aren't supported.
 - **The menu bar app is macOS-only** and isn't signed or notarized. There's no tray app for Windows or Linux.
@@ -309,9 +309,9 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 | `no DDC/CI-capable monitors found` | Turn on DDC/CI in the monitor's menu (Others → DDC/CI) and try a direct cable instead of a dock or adapter. On Windows, also update your graphics driver. |
 | `…the i2c-dev kernel module probably isn't loaded` (Linux) | Do step 1 of the [Arch I²C setup](#arch-linux-setup). |
 | `no permission to open /dev/i2c-N` (Linux) | Do steps 2–3 of the [Arch I²C setup](#arch-linux-setup). |
-| `couldn't read … from DELL …` / `couldn't change …` | The monitor didn't answer, even after automatic retries. Check DDC/CI is on and try a direct cable. |
-| `several monitors are connected; choose one with --monitor` | Add `--monitor <number or model>`; see `dellctl list`. |
-| `doesn't support speaker mute over DDC/CI` | Use `dellctl volume 0`. |
+| `couldn't read … from <monitor>` / `couldn't change …` | The monitor didn't answer, even after automatic retries. Check DDC/CI is on and try a direct cable. |
+| `several monitors are connected; choose one with --monitor` | Add `--monitor <number or model>`; see `monitorctl list`. |
+| `doesn't support speaker mute over DDC/CI` | Use `monitorctl volume 0`. |
 
 ## License
 

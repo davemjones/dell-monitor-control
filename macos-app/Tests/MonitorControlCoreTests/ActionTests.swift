@@ -21,7 +21,7 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
     #expect(failureMessage(of: finished(1, stderr: err)) == "Couldn't change brightness")
     #expect(failureMessage(of: finished(1, stderr: "error: boom")) == "Error: boom")
     #expect(failureMessage(of: .timedOut) == Problem.timedOut.title)
-    #expect(failureMessage(of: .launchFailed) == Problem.cantRunDellctl.title)
+    #expect(failureMessage(of: .launchFailed) == Problem.cantRunMonitorctl.title)
 }
 
 @Test func readsBrightness() {

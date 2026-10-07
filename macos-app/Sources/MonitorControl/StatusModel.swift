@@ -2,7 +2,7 @@ import AppKit
 import MonitorControlCore
 import Observation
 
-/// The panel's view of the monitor, read fresh from dellctl each time it opens,
+/// The panel's view of the monitor, read fresh from monitorctl each time it opens,
 /// and the changes made from it.
 @MainActor
 @Observable
@@ -26,7 +26,7 @@ final class StatusModel {
     /// The level the monitor last confirmed, to fall back to after a failure.
     @ObservationIgnored private var confirmedBrightness: Int?
     @ObservationIgnored private var tail: Task<Void, Never>?
-    @ObservationIgnored private let dellctl = Dellctl.bundled()
+    @ObservationIgnored private let monitorctl = Monitorctl.bundled()
 
     func refresh() {
         // Opening the panel can trigger this twice; one refresh at a time.
@@ -38,7 +38,7 @@ final class StatusModel {
         loginItem = LoginItem.state
         loginItemError = nil
         serial { [self] in
-            state = PanelState(statusResult: await dellctl.run(["status", "--json"]))
+            state = PanelState(statusResult: await monitorctl.run(["status", "--json"]))
             if case .ready(let status) = state {
                 confirmedBrightness = status.brightness
                 writer = BrightnessWriter(current: status.brightness)
@@ -53,7 +53,7 @@ final class StatusModel {
         switchingTo = input.code
         actionError = nil
         serial { [self] in
-            let result = await dellctl.run(["input", "set", input.code, "--json"])
+            let result = await monitorctl.run(["input", "set", input.code, "--json"])
             switchingTo = nil
             if let message = failureMessage(of: result) {
                 actionError = message
@@ -76,10 +76,10 @@ final class StatusModel {
 
     private func write(_ level: Int) {
         serial { [self] in
-            let result = await dellctl.run(["brightness", "\(level)", "--json"])
+            let result = await monitorctl.run(["brightness", "\(level)", "--json"])
             if let message = failureMessage(of: result) {
                 // Snap back to what the monitor actually has.
-                let real = parseBrightness(await dellctl.run(["brightness", "--json"]))
+                let real = parseBrightness(await monitorctl.run(["brightness", "--json"]))
                 confirmedBrightness = real ?? confirmedBrightness
                 writer.failed(current: confirmedBrightness)
                 brightness = Double(confirmedBrightness ?? 0)
@@ -103,7 +103,7 @@ final class StatusModel {
         loginItem = LoginItem.state
     }
 
-    /// Runs `job` after every earlier one, so only one dellctl talks to the
+    /// Runs `job` after every earlier one, so only one monitorctl talks to the
     /// monitor at a time.
     private func serial(_ job: @escaping @MainActor () async -> Void) {
         let previous = tail

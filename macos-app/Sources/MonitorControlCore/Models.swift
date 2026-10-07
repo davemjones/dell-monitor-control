@@ -1,6 +1,6 @@
 import Foundation
 
-/// The shapes of `dellctl --json` output that the app reads.
+/// The shapes of `monitorctl --json` output that the app reads.
 
 public struct InputRef: Decodable, Equatable, Sendable {
     public let name: String
@@ -19,7 +19,7 @@ public struct InputEntry: Decodable, Equatable, Sendable {
     }
 }
 
-/// `dellctl status --json` for a single monitor. Unreadable settings are nil.
+/// `monitorctl status --json` for a single monitor. Unreadable settings are nil.
 public struct MonitorStatus: Decodable, Equatable, Sendable {
     public let name: String
     public private(set) var input: InputRef?

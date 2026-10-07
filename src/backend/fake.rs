@@ -32,7 +32,6 @@ impl FakeMonitor {
         FakeMonitor {
             info: MonitorInfo {
                 name: "DELL U3425WE".into(),
-                manufacturer: None,
                 serial: Some("JK4HV84".into()),
             },
             values: HashMap::from([

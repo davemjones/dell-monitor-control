@@ -1,13 +1,13 @@
 import Foundation
 
-/// dellctl's own message for a failed run, in sentence case for the panel: the
+/// monitorctl's own message for a failed run, in sentence case for the panel: the
 /// JSON error's message, or its raw stderr if that isn't JSON.
 func errorMessage(_ stderr: Data) -> String {
     let text =
         ErrorPayload.decode(stderr)?.message
         ?? String(decoding: stderr, as: UTF8.self)
         .trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let first = text.first else { return "dellctl stopped without saying why." }
+    guard let first = text.first else { return "monitorctl stopped without saying why." }
     return first.uppercased() + text.dropFirst()
 }
 
@@ -17,12 +17,12 @@ public func failureMessage(of result: RunResult) -> String? {
     switch result {
     case .finished(exitCode: 0, _, _): nil
     case .finished(_, _, let stderr): errorMessage(stderr)
-    case .launchFailed: Problem.cantRunDellctl.title
+    case .launchFailed: Problem.cantRunMonitorctl.title
     case .timedOut: Problem.timedOut.title
     }
 }
 
-/// The level from `dellctl brightness --json`.
+/// The level from `monitorctl brightness --json`.
 public func parseBrightness(_ result: RunResult) -> Int? {
     struct Reading: Decodable { let brightness: Int }
     guard case .finished(exitCode: 0, let stdout, _) = result else { return nil }

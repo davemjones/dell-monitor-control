@@ -62,9 +62,9 @@ jobs:
         id: package
         shell: bash
         run: |
-          name="dellctl-${GITHUB_REF_NAME}-${{ matrix.label }}"
-          exe="dellctl"
-          if [ "${{ runner.os }}" = "Windows" ]; then exe="dellctl.exe"; fi
+          name="monitorctl-${GITHUB_REF_NAME}-${{ matrix.label }}"
+          exe="monitorctl"
+          if [ "${{ runner.os }}" = "Windows" ]; then exe="monitorctl.exe"; fi
           mkdir "$name"
           cp "target/${{ matrix.target }}/release/$exe" README.md LICENSE-MIT LICENSE-APACHE "$name/"
           if [ "${{ matrix.archive }}" = "zip" ]; then

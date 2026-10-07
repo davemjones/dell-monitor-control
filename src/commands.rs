@@ -209,7 +209,7 @@ fn mute_unsupported(monitor: &dyn Monitor) -> Failure {
     Failure::new(
         FailureKind::Unsupported,
         format!(
-            "{} doesn't support speaker mute over DDC/CI; try `dellctl volume 0` instead",
+            "{} doesn't support speaker mute over DDC/CI; try `monitorctl volume 0` instead",
             monitor.info().name
         ),
     )
@@ -309,28 +309,28 @@ mod tests {
 
     fn run_with(monitors: Vec<FakeMonitor>, args: &[&str]) -> Result<String> {
         let cli =
-            Cli::try_parse_from(std::iter::once("dellctl").chain(args.iter().copied())).unwrap();
+            Cli::try_parse_from(std::iter::once("monitorctl").chain(args.iter().copied())).unwrap();
         run(&cli, &FakeBackend(monitors))
     }
 
-    fn dell() -> Vec<FakeMonitor> {
+    fn u3425we() -> Vec<FakeMonitor> {
         vec![FakeMonitor::u3425we()]
     }
 
     #[test]
     fn status_text_matches_prd_layout() {
-        let out = run_with(dell(), &[]).unwrap();
+        let out = run_with(u3425we(), &[]).unwrap();
         assert_eq!(
             out,
             "DELL U3425WE (monitor 1)\n  Input:      thunderbolt\n  Brightness: 78\n  Volume:     88\n  Speakers:   n/a"
         );
-        assert_eq!(run_with(dell(), &["status"]).unwrap(), out);
+        assert_eq!(run_with(u3425we(), &["status"]).unwrap(), out);
     }
 
     #[test]
     fn status_json_single_monitor_is_an_object() {
         let out: serde_json::Value =
-            serde_json::from_str(&run_with(dell(), &["status", "--json"]).unwrap()).unwrap();
+            serde_json::from_str(&run_with(u3425we(), &["status", "--json"]).unwrap()).unwrap();
         assert_eq!(
             out,
             json!({
@@ -387,9 +387,9 @@ mod tests {
             kind(vec![FakeMonitor::named("DELL P2419H")], &["input", "list"]),
             FailureKind::Failed
         );
-        assert_eq!(kind(dell(), &["speaker"]), FailureKind::Unsupported);
+        assert_eq!(kind(u3425we(), &["speaker"]), FailureKind::Unsupported);
         assert_eq!(
-            kind(dell(), &["-m", "9", "brightness"]),
+            kind(u3425we(), &["-m", "9", "brightness"]),
             FailureKind::Failed
         );
 
@@ -426,21 +426,21 @@ mod tests {
     #[test]
     fn list_and_verbose() {
         assert_eq!(
-            run_with(dell(), &["list"]).unwrap(),
+            run_with(u3425we(), &["list"]).unwrap(),
             "1  DELL U3425WE  (serial JK4HV84)"
         );
         assert_eq!(
-            run_with(dell(), &["list", "--verbose"]).unwrap(),
+            run_with(u3425we(), &["list", "--verbose"]).unwrap(),
             "1  DELL U3425WE  (serial JK4HV84)\n   supports:      input, brightness, volume\n   not supported: speaker mute"
         );
         let json: serde_json::Value =
-            serde_json::from_str(&run_with(dell(), &["list", "-v", "--json"]).unwrap()).unwrap();
+            serde_json::from_str(&run_with(u3425we(), &["list", "-v", "--json"]).unwrap()).unwrap();
         assert_eq!(
             json[0]["controls"],
             json!({ "input": true, "brightness": true, "volume": true, "mute": false })
         );
         assert!(
-            run_with(dell(), &["list", "--json"])
+            run_with(u3425we(), &["list", "--json"])
                 .unwrap()
                 .find("controls")
                 .is_none()
@@ -469,15 +469,16 @@ mod tests {
     #[test]
     fn input_active_and_list() {
         assert_eq!(
-            run_with(dell(), &["input"]).unwrap(),
+            run_with(u3425we(), &["input"]).unwrap(),
             "Input: thunderbolt [0x19]"
         );
         assert_eq!(
-            run_with(dell(), &["input", "list"]).unwrap(),
+            run_with(u3425we(), &["input", "list"]).unwrap(),
             "  dp           [0x0f]\n  hdmi         [0x11]\n* thunderbolt  [0x19]"
         );
         let json: serde_json::Value =
-            serde_json::from_str(&run_with(dell(), &["input", "list", "--json"]).unwrap()).unwrap();
+            serde_json::from_str(&run_with(u3425we(), &["input", "list", "--json"]).unwrap())
+                .unwrap();
         assert_eq!(
             json[2],
             json!({ "name": "thunderbolt", "code": "0x19", "active": true })
@@ -486,19 +487,22 @@ mod tests {
 
     #[test]
     fn single_reads() {
-        assert_eq!(run_with(dell(), &["brightness"]).unwrap(), "Brightness: 78");
-        assert_eq!(run_with(dell(), &["volume"]).unwrap(), "Volume: 88");
         assert_eq!(
-            run_with(dell(), &["brightness", "--json"]).unwrap(),
+            run_with(u3425we(), &["brightness"]).unwrap(),
+            "Brightness: 78"
+        );
+        assert_eq!(run_with(u3425we(), &["volume"]).unwrap(), "Volume: 88");
+        assert_eq!(
+            run_with(u3425we(), &["brightness", "--json"]).unwrap(),
             "{\n  \"brightness\": 78\n}"
         );
     }
 
     #[test]
     fn speaker_state_and_unsupported() {
-        let err = run_with(dell(), &["speaker"]).unwrap_err().to_string();
+        let err = run_with(u3425we(), &["speaker"]).unwrap_err().to_string();
         assert!(
-            err.contains("doesn't support speaker mute") && err.contains("dellctl volume 0"),
+            err.contains("doesn't support speaker mute") && err.contains("monitorctl volume 0"),
             "{err}"
         );
 
@@ -530,25 +534,25 @@ mod tests {
 
     #[test]
     fn brightness_set_and_nudge() {
-        let (dell, writes) = watched(FakeMonitor::u3425we());
+        let (monitor, writes) = watched(FakeMonitor::u3425we());
         assert_eq!(
-            run_with(dell.clone(), &["brightness", "40"]).unwrap(),
+            run_with(monitor.clone(), &["brightness", "40"]).unwrap(),
             "Brightness: 78 → 40"
         );
         assert_eq!(
-            run_with(dell.clone(), &["brightness", "+10"]).unwrap(),
+            run_with(monitor.clone(), &["brightness", "+10"]).unwrap(),
             "Brightness: 78 → 88"
         );
         assert_eq!(
-            run_with(dell.clone(), &["brightness", "-10"]).unwrap(),
+            run_with(monitor.clone(), &["brightness", "-10"]).unwrap(),
             "Brightness: 78 → 68"
         );
         assert_eq!(
-            run_with(dell.clone(), &["brightness", "+50"]).unwrap(),
+            run_with(monitor.clone(), &["brightness", "+50"]).unwrap(),
             "Brightness: 78 → 100"
         );
         assert_eq!(
-            run_with(dell, &["brightness", "-100"]).unwrap(),
+            run_with(monitor, &["brightness", "-100"]).unwrap(),
             "Brightness: 78 → 0"
         );
         assert_eq!(
@@ -560,7 +564,7 @@ mod tests {
     #[test]
     fn brightness_json_and_other_scales() {
         let out: serde_json::Value =
-            serde_json::from_str(&run_with(dell(), &["brightness", "+5", "--json"]).unwrap())
+            serde_json::from_str(&run_with(u3425we(), &["brightness", "+5", "--json"]).unwrap())
                 .unwrap();
         assert_eq!(out, json!({ "brightness": { "before": 78, "after": 83 } }));
 
@@ -650,13 +654,13 @@ mod tests {
 
     #[test]
     fn speaker_change_unsupported_suggests_volume() {
-        let (dell, writes) = watched(FakeMonitor::u3425we());
+        let (monitor, writes) = watched(FakeMonitor::u3425we());
         for state in ["on", "off", "toggle"] {
-            let err = run_with(dell.clone(), &["speaker", state])
+            let err = run_with(monitor.clone(), &["speaker", state])
                 .unwrap_err()
                 .to_string();
             assert!(
-                err.contains("doesn't support speaker mute") && err.contains("dellctl volume 0"),
+                err.contains("doesn't support speaker mute") && err.contains("monitorctl volume 0"),
                 "{err}"
             );
         }
@@ -665,7 +669,7 @@ mod tests {
 
     #[test]
     fn input_set_by_name_alias_and_code() {
-        let (dell, writes) = watched(FakeMonitor::u3425we());
+        let (monitor, writes) = watched(FakeMonitor::u3425we());
         for (arg, expected) in [
             ("hdmi", "Switched to hdmi"),
             ("HDMI1", "Switched to hdmi"),
@@ -675,7 +679,7 @@ mod tests {
             ("17", "Switched to hdmi"),
         ] {
             assert_eq!(
-                run_with(dell.clone(), &["input", "set", arg]).unwrap(),
+                run_with(monitor.clone(), &["input", "set", arg]).unwrap(),
                 expected,
                 "{arg}"
             );
@@ -695,16 +699,16 @@ mod tests {
 
     #[test]
     fn input_set_active_is_a_no_op() {
-        let (dell, writes) = watched(FakeMonitor::u3425we());
+        let (monitor, writes) = watched(FakeMonitor::u3425we());
         for arg in ["thunderbolt", "usb-c", "usbc", "TB", "0x19"] {
             assert_eq!(
-                run_with(dell.clone(), &["input", "set", arg]).unwrap(),
+                run_with(monitor.clone(), &["input", "set", arg]).unwrap(),
                 "Already on thunderbolt",
                 "{arg}"
             );
         }
         let out: serde_json::Value =
-            serde_json::from_str(&run_with(dell, &["input", "set", "tb", "--json"]).unwrap())
+            serde_json::from_str(&run_with(monitor, &["input", "set", "tb", "--json"]).unwrap())
                 .unwrap();
         assert_eq!(out["changed"], json!(false));
         assert!(writes.borrow().is_empty());
@@ -712,9 +716,10 @@ mod tests {
 
     #[test]
     fn input_set_json() {
-        let out: serde_json::Value =
-            serde_json::from_str(&run_with(dell(), &["input", "set", "hdmi", "--json"]).unwrap())
-                .unwrap();
+        let out: serde_json::Value = serde_json::from_str(
+            &run_with(u3425we(), &["input", "set", "hdmi", "--json"]).unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             out,
             json!({
@@ -727,9 +732,9 @@ mod tests {
 
     #[test]
     fn input_set_rejects_what_the_monitor_lacks() {
-        let (dell, writes) = watched(FakeMonitor::u3425we());
+        let (monitor, writes) = watched(FakeMonitor::u3425we());
         for arg in ["vga", "0x12", "hdmi2", "bogus"] {
-            let err = run_with(dell.clone(), &["input", "set", arg])
+            let err = run_with(monitor.clone(), &["input", "set", arg])
                 .unwrap_err()
                 .to_string();
             assert_eq!(
@@ -800,7 +805,7 @@ mod tests {
 
     #[test]
     fn missing_monitor_number() {
-        let err = run_with(dell(), &["--monitor", "2", "status"])
+        let err = run_with(u3425we(), &["--monitor", "2", "status"])
             .unwrap_err()
             .to_string();
         assert!(err.starts_with("there's no monitor 2"), "{err}");

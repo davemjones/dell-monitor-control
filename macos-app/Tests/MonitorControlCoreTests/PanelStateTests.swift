@@ -73,15 +73,15 @@ private let u3425we = """
 }
 
 @Test func launchAndTimeout() {
-    #expect(PanelState(statusResult: .launchFailed) == .problem(.cantRunDellctl))
+    #expect(PanelState(statusResult: .launchFailed) == .problem(.cantRunMonitorctl))
     #expect(PanelState(statusResult: .timedOut) == .problem(.timedOut))
 }
 
 @Test func runsAProcess() async {
-    let echo = Dellctl(executable: URL(filePath: "/bin/echo"))
+    let echo = Monitorctl(executable: URL(filePath: "/bin/echo"))
     #expect(await echo.run(["hi"]) == finished(0, stdout: "hi\n"))
-    let missing = Dellctl(executable: URL(filePath: "/nonexistent/dellctl"))
+    let missing = Monitorctl(executable: URL(filePath: "/nonexistent/monitorctl"))
     #expect(await missing.run([]) == .launchFailed)
-    let slow = Dellctl(executable: URL(filePath: "/bin/sleep"))
+    let slow = Monitorctl(executable: URL(filePath: "/bin/sleep"))
     #expect(await slow.run(["5"], timeout: 0.2) == .timedOut)
 }

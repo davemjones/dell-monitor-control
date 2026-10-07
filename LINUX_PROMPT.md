@@ -1,10 +1,10 @@
-# Working on dellctl from Linux
+# Working on monitorctl from Linux
 
 You are working on this repository from a **Linux** machine (the target distribution is **Arch Linux, x64**). This file has what you need to build, verify on real hardware, and improve the project on Linux. Read it fully, then read `README.md`, before changing anything.
 
 ## What this project is
 
-`dellctl` is a Rust command-line tool for controlling a Dell monitor over **DDC/CI** (a control channel that runs over the video cable). It can:
+`monitorctl` is a Rust command-line tool for controlling a monitor over **DDC/CI** (a control channel that runs over the video cable). It can:
 - List and switch inputs.
 - Read and set brightness.
 - Read and set speaker volume.
@@ -26,7 +26,7 @@ Every read command takes `--json`. One codebase builds for macOS (Apple Silicon)
 | `src/cli.rs` | clap argument definitions (`Cli`, `Command`, `InputAction`, `Level`) |
 | `src/commands.rs` | All command logic, written against the `Backend`/`Monitor` traits. Most tests live here |
 | `src/output.rs` | Output structs (`Status`, `InputEntry`, …) and text/JSON rendering |
-| `src/select.rs` | Choosing the monitor (auto-picks the only monitor or the only Dell), plus the no-monitor hint text `DDC_HINT` |
+| `src/select.rs` | Choosing the monitor (auto-picks the monitor when only one is connected), plus the no-monitor hint text `DDC_HINT` |
 | `src/failure.rs` | `Failure { kind, message }`. Kinds: `no_monitor`, `multiple_monitors`, `unsupported`, `failed` |
 | `src/vcp.rs` | VCP codes (0x10 brightness, 0x60 input, 0x62 volume, 0x8D mute), input names and aliases, percent scaling |
 | `src/backend/mod.rs` | The `Backend` / `Monitor` traits and capability parsing |
@@ -53,7 +53,7 @@ rustup component add clippy rustfmt
 
 `libudev` comes with `systemd`, which every Arch install has. On Debian/Ubuntu use `sudo apt install libudev-dev pkg-config` instead.
 
-Give your user access to the monitor's I²C devices. Without this step, `dellctl` explains what's missing and prints these same commands:
+Give your user access to the monitor's I²C devices. Without this step, `monitorctl` explains what's missing and prints these same commands:
 
 ```sh
 sudo modprobe i2c-dev
@@ -66,13 +66,13 @@ echo 'KERNEL=="i2c-[0-9]*", GROUP="i2c", MODE="0660"' | sudo tee /etc/udev/rules
 
 Make sure DDC/CI is on in the monitor's menu (**Others → DDC/CI → On**). Use a direct cable if possible, since docks, adapters, and KVMs can block DDC/CI.
 
-**Optional cross-check tool:** `sudo pacman -S ddcutil`. `ddcutil detect` and `ddcutil getvcp 10` give an independent answer when deciding whether a problem is in `dellctl` or in the system or driver. Known issue: some GPU drivers (notably NVIDIA's proprietary driver) don't expose DDC over I²C by default. Check `ddcutil`'s documentation for the needed driver options before assuming a `dellctl` bug.
+**Optional cross-check tool:** `sudo pacman -S ddcutil`. `ddcutil detect` and `ddcutil getvcp 10` give an independent answer when deciding whether a problem is in `monitorctl` or in the system or driver. Known issue: some GPU drivers (notably NVIDIA's proprietary driver) don't expose DDC over I²C by default. Check `ddcutil`'s documentation for the needed driver options before assuming a `monitorctl` bug.
 
 ## Build and test
 
 ```sh
 cargo build                 # debug
-cargo build --release       # → target/release/dellctl
+cargo build --release       # → target/release/monitorctl
 cargo test                  # 54 tests, simulated monitor, no hardware needed
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
@@ -84,14 +84,14 @@ All of these must pass before anything is committed. These are the same checks t
 
 Work through this with the U3425WE connected. Note what Linux actually reports for each step.
 
-1. `./target/release/dellctl list` and `list --verbose` should show `DELL U3425WE` with a serial. Verbose should report `input, brightness, volume` as supported and `speaker mute` as not supported. If the name or serial is missing or wrong, fix the Linux path (it comes from `ddc-hi`'s EDID read).
-2. `dellctl` / `dellctl status`: the input this PC is connected on, plus brightness, volume, and `Speakers: n/a`.
-3. `dellctl status --json`: an object with `inputs` listing `dp`, `hdmi`, and `thunderbolt`, with the active one marked.
-4. `dellctl input` and `dellctl input list`: the active input is marked `*`.
-5. `dellctl brightness`, `brightness 40`, `brightness +10`, `brightness -10`, and `brightness 150` (must be rejected). Nudges clamp at 0 and 100.
-6. `dellctl volume` and `volume 30`.
-7. `dellctl speaker`: it must say mute isn't supported and suggest `dellctl volume 0`.
-8. `dellctl input set <other input>`: the monitor switches. Then check whether `dellctl input set <this PC's input>` can switch back while another source is showing; DDC/CI may be lost after switching away on some setups. Record the result for the README's Known limitations section (macOS over Thunderbolt *can* switch back).
+1. `./target/release/monitorctl list` and `list --verbose` should show `DELL U3425WE` with a serial. Verbose should report `input, brightness, volume` as supported and `speaker mute` as not supported. If the name or serial is missing or wrong, fix the Linux path (it comes from `ddc-hi`'s EDID read).
+2. `monitorctl` / `monitorctl status`: the input this PC is connected on, plus brightness, volume, and `Speakers: n/a`.
+3. `monitorctl status --json`: an object with `inputs` listing `dp`, `hdmi`, and `thunderbolt`, with the active one marked.
+4. `monitorctl input` and `monitorctl input list`: the active input is marked `*`.
+5. `monitorctl brightness`, `brightness 40`, `brightness +10`, `brightness -10`, and `brightness 150` (must be rejected). Nudges clamp at 0 and 100.
+6. `monitorctl volume` and `volume 30`.
+7. `monitorctl speaker`: it must say mute isn't supported and suggest `monitorctl volume 0`.
+8. `monitorctl input set <other input>`: the monitor switches. Then check whether `monitorctl input set <this PC's input>` can switch back while another source is showing; DDC/CI may be lost after switching away on some setups. Record the result for the README's Known limitations section (macOS over Thunderbolt *can* switch back).
 9. Error paths:
    - Unload the module (`sudo modprobe -r i2c-dev`): you should get the "i2c-dev kernel module probably isn't loaded" message.
    - Run as a user without access: you should get the "no permission to open /dev/i2c-N" message.
@@ -99,7 +99,7 @@ Work through this with the U3425WE connected. Note what Linux actually reports f
    - Add `--json` to any failing command: stderr should be `{"error":{"kind":…,"message":…}}` with exit code 1.
 10. Timing: on macOS, `status` takes ~0.25s and `status --json`/`input list` take ~1.3s (reading capabilities is slow). Note the Linux numbers. Retries in `ddc.rs` may need tuning if Linux shows intermittent read failures.
 
-Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show up. If it does, check that `select::one` still auto-picks the only Dell.
+Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show up. If it does, `select::one` will ask for `--monitor`; check that the message lists both.
 
 ## The JSON contract (don't break it)
 
@@ -133,12 +133,12 @@ Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show u
 ## Building a Linux tray/desktop app (if requested)
 
 The macOS app (`macos-app/`) sets the pattern for any Linux counterpart:
-- It's a **front end only**. It runs the bundled `dellctl` and reads its JSON, and must never talk DDC/CI itself or duplicate input, brightness, or selection rules. If the app needs data the CLI doesn't give, extend the CLI and its JSON.
-- One `dellctl status --json` call each time the panel opens. A spinner shows while it loads; old values are never shown.
+- It's a **front end only**. It runs the bundled `monitorctl` and reads its JSON, and must never talk DDC/CI itself or duplicate input, brightness, or selection rules. If the app needs data the CLI doesn't give, extend the CLI and its JSON.
+- One `monitorctl status --json` call each time the panel opens. A spinner shows while it loads; old values are never shown.
 - Switching inputs: `input set <code> --json`, then close the panel on success.
 - Brightness: a slider that writes `brightness <n> --json` while dragging. Only one write is in flight at a time, values overtaken during a write are skipped, and the last value is always written. If a write fails, the slider snaps back to the real value from `brightness --json`.
-- Only one `dellctl` runs at a time, so DDC/CI commands never overlap. Each run has a 10s timeout.
+- Only one `monitorctl` runs at a time, so DDC/CI commands never overlap. Each run has a 10s timeout.
 - Problem states map from the error `kind`, each with a Retry button. A monitor that's found but has every value `null` means DDC/CI is off or blocked.
 - Plus a Launch at login option, Quit, and a version display.
 
-Read `macos-app/Sources/MonitorControlCore/` (`Dellctl.swift`, `PanelState.swift`, `Actions.swift`) for the exact behavior to mirror. Agree on the toolkit (e.g. GTK, Qt, or a Rust tray crate) and on desktop-environment support (KDE, GNOME and its tray-extension caveat, etc.) with the user before building.
+Read `macos-app/Sources/MonitorControlCore/` (`Monitorctl.swift`, `PanelState.swift`, `Actions.swift`) for the exact behavior to mirror. Agree on the toolkit (e.g. GTK, Qt, or a Rust tray crate) and on desktop-environment support (KDE, GNOME and its tray-extension caveat, etc.) with the user before building.

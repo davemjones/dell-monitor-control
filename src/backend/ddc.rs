@@ -51,7 +51,6 @@ impl Backend for DdcHiBackend {
                     if !found.name.is_empty() {
                         info.name = found.name;
                     }
-                    info.manufacturer = found.manufacturer.or(info.manufacturer.take());
                     info.serial = found.serial.or(info.serial.take());
                 }
             }
@@ -78,7 +77,6 @@ impl Backend for DdcHiBackend {
 fn info_from(info: &DisplayInfo) -> MonitorInfo {
     MonitorInfo {
         name: info.model_name.clone().unwrap_or_else(|| info.id.clone()),
-        manufacturer: info.manufacturer_id.clone(),
         serial: info.serial_number.clone(),
     }
 }

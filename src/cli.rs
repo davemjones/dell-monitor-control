@@ -2,24 +2,24 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "dellctl",
+    name = "monitorctl",
     version,
-    about = "Control a Dell monitor's input, brightness, and speakers over DDC/CI",
-    long_about = "Control a Dell monitor's input, brightness, and speakers over DDC/CI.\n\n\
-        With one Dell connected, every command targets it automatically. \
+    about = "Control a monitor's input, brightness, and speakers over DDC/CI",
+    long_about = "Control a monitor's input, brightness, and speakers over DDC/CI.\n\n\
+        With one monitor connected, every command targets it automatically. \
         DDC/CI must be enabled in the monitor's on-screen menu (Others → DDC/CI).",
     after_help = "Examples:
-  dellctl                       Show input, brightness, volume, and speakers
-  dellctl list                  List connected monitors
-  dellctl input set hdmi        Switch to HDMI
-  dellctl brightness +10        Raise brightness by 10
-  dellctl volume 30             Set speaker volume to 30
-  dellctl speaker toggle        Mute or unmute the speakers
-  dellctl status --json         Print status as JSON
-  dellctl -m U3425 brightness   Pick a monitor by model"
+  monitorctl                       Show input, brightness, volume, and speakers
+  monitorctl list                  List connected monitors
+  monitorctl input set hdmi        Switch to HDMI
+  monitorctl brightness +10        Raise brightness by 10
+  monitorctl volume 30             Set speaker volume to 30
+  monitorctl speaker toggle        Mute or unmute the speakers
+  monitorctl status --json         Print status as JSON
+  monitorctl -m U3425 brightness   Pick a monitor by model"
 )]
 pub struct Cli {
-    /// Monitor to control: its number from `dellctl list`, or part of its model name
+    /// Monitor to control: its number from `monitorctl list`, or part of its model name
     #[arg(long, short, global = true, value_name = "N|MODEL")]
     pub monitor: Option<String>,
 
@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn negative_nudge_is_not_a_flag() {
-        let cli = Cli::try_parse_from(["dellctl", "brightness", "-10"]).unwrap();
+        let cli = Cli::try_parse_from(["monitorctl", "brightness", "-10"]).unwrap();
         assert!(matches!(
             cli.command,
             Some(Command::Brightness {
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn bare_command_means_status() {
-        let cli = Cli::try_parse_from(["dellctl"]).unwrap();
+        let cli = Cli::try_parse_from(["monitorctl"]).unwrap();
         assert!(cli.command.is_none());
     }
 

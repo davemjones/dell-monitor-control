@@ -1,5 +1,5 @@
 extension InputEntry {
-    /// How the panel names this input; dellctl's name if it isn't a known one.
+    /// How the panel names this input; monitorctl's name if it isn't a known one.
     public var label: String {
         switch name {
         case "thunderbolt": "Thunderbolt / USB-C"

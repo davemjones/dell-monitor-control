@@ -24,16 +24,7 @@ pub use ddc::DdcHiBackend;
 pub struct MonitorInfo {
     /// Human-readable name, e.g. "DELL U3425WE".
     pub name: String,
-    /// Three-letter EDID manufacturer code, e.g. "DEL", when known.
-    pub manufacturer: Option<String>,
     pub serial: Option<String>,
-}
-
-impl MonitorInfo {
-    pub fn is_dell(&self) -> bool {
-        self.manufacturer.as_deref() == Some("DEL")
-            || self.name.to_ascii_uppercase().contains("DELL")
-    }
 }
 
 /// A raw VCP reading: current value and the monitor's reported maximum.
@@ -90,26 +81,5 @@ mod tests {
         assert!(caps.supports(0x10));
         assert!(caps.supports(0x62));
         assert!(!caps.supports(0x8D));
-    }
-
-    #[test]
-    fn dell_detection() {
-        let by_name = MonitorInfo {
-            name: "DELL U3425WE".into(),
-            ..Default::default()
-        };
-        let by_mfg = MonitorInfo {
-            name: "Generic".into(),
-            manufacturer: Some("DEL".into()),
-            ..Default::default()
-        };
-        let other = MonitorInfo {
-            name: "LG 27UK850".into(),
-            manufacturer: Some("GSM".into()),
-            ..Default::default()
-        };
-        assert!(by_name.is_dell());
-        assert!(by_mfg.is_dell());
-        assert!(!other.is_dell());
     }
 }

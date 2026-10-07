@@ -1,13 +1,13 @@
 #!/bin/sh
-# Builds `target/Monitor Control.app`: compiles dellctl and the menu bar app,
-# then bundles dellctl inside the app at Contents/Helpers/dellctl.
+# Builds `target/Monitor Control.app`: compiles monitorctl and the menu bar app,
+# then bundles monitorctl inside the app at Contents/Helpers/monitorctl.
 set -eu
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 app="$repo/target/Monitor Control.app"
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/Cargo.toml" | head -n 1)
 
-echo "Building dellctl ${version}…"
+echo "Building monitorctl ${version}…"
 cargo build --release --manifest-path "$repo/Cargo.toml"
 
 echo "Building Monitor Control…"
@@ -29,7 +29,7 @@ fi
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Helpers" "$app/Contents/Resources"
 cp "$bin/MonitorControl" "$app/Contents/MacOS/MonitorControl"
-cp "$repo/target/release/dellctl" "$app/Contents/Helpers/dellctl"
+cp "$repo/target/release/monitorctl" "$app/Contents/Helpers/monitorctl"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
 
 cat > "$app/Contents/Info.plist" <<PLIST
@@ -64,7 +64,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 PLIST
 
 # Ad-hoc signatures so Apple Silicon will run it; not a distribution signature.
-codesign --force --sign - "$app/Contents/Helpers/dellctl"
+codesign --force --sign - "$app/Contents/Helpers/monitorctl"
 codesign --force --sign - "$app"
 
 echo "Built $app"

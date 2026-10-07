@@ -5,7 +5,7 @@ use anyhow::{Result, bail};
 use crate::backend::Monitor;
 use crate::failure::{Failure, FailureKind};
 
-/// A monitor together with its 1-based number from `dellctl list`.
+/// A monitor together with its 1-based number from `monitorctl list`.
 pub struct Indexed {
     pub index: usize,
     pub monitor: Box<dyn Monitor>,
@@ -23,7 +23,7 @@ pub fn index(monitors: Vec<Box<dyn Monitor>>) -> Vec<Indexed> {
 }
 
 /// Choose exactly one monitor: the one `--monitor` names, the only monitor
-/// connected, or the only Dell. Anything ambiguous is an error that lists
+/// connected. Anything ambiguous is an error that lists
 /// the candidates rather than a guess.
 pub fn one(monitors: Vec<Box<dyn Monitor>>, wanted: Option<&str>) -> Result<Indexed> {
     let mut candidates = index(monitors);
@@ -36,14 +36,6 @@ pub fn one(monitors: Vec<Box<dyn Monitor>>, wanted: Option<&str>) -> Result<Inde
     }
     if candidates.len() == 1 {
         return Ok(candidates.remove(0));
-    }
-    let dells: Vec<usize> = candidates
-        .iter()
-        .filter(|c| c.monitor.info().is_dell())
-        .map(|c| c.index)
-        .collect();
-    if let [only] = dells[..] {
-        return Ok(candidates.remove(only - 1));
     }
     bail!(Failure::new(
         FailureKind::MultipleMonitors,
@@ -122,8 +114,8 @@ fn no_monitors_message() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::Backend;
     use crate::backend::fake::{FakeBackend, FakeMonitor};
-    use crate::backend::{Backend, MonitorInfo};
 
     fn monitors(list: Vec<FakeMonitor>) -> Vec<Box<dyn Monitor>> {
         FakeBackend(list).enumerate().unwrap()
@@ -147,18 +139,9 @@ mod tests {
     }
 
     #[test]
-    fn only_dell_is_picked_among_several() {
-        let got = picked(one(monitors(vec![lg(), FakeMonitor::u3425we()]), None));
-        assert_eq!(got, (2, "DELL U3425WE".into()));
-    }
-
-    #[test]
-    fn two_dells_need_a_choice() {
+    fn several_monitors_need_a_choice() {
         let err = one(
-            monitors(vec![
-                FakeMonitor::u3425we(),
-                FakeMonitor::named("DELL U2723QE"),
-            ]),
+            monitors(vec![lg(), FakeMonitor::named("DELL U2723QE")]),
             None,
         )
         .err()
@@ -195,22 +178,12 @@ mod tests {
         );
         let both = monitors(vec![FakeMonitor::u3425we(), FakeMonitor::u3425we()]);
         assert!(
-            one(both, Some("dell"))
+            one(both, Some("u3425we"))
                 .err()
                 .unwrap()
                 .to_string()
                 .contains("matches several")
         );
-    }
-
-    #[test]
-    fn manufacturer_code_counts_as_dell() {
-        let mut generic = FakeMonitor::named("Generic PnP Monitor");
-        generic.info = MonitorInfo {
-            manufacturer: Some("DEL".into()),
-            ..generic.info
-        };
-        assert_eq!(picked(one(monitors(vec![lg(), generic]), None)).0, 2);
     }
 
     #[test]

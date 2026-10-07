@@ -4,19 +4,18 @@
 //! "Generic PnP Monitor". The real model name and serial live in the EDID,
 //! which Windows keeps a copy of in the registry under the monitor's device.
 
-/// The 3-letter PnP manufacturer code and the registry key holding the EDID,
-/// from a monitor's device interface name, e.g.
+/// The registry key holding the EDID, from a monitor's device interface
+/// name, e.g.
 /// `\\?\DISPLAY#DELA1B3#5&1a2b&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}`
-/// → ("DEL", `SYSTEM\CurrentControlSet\Enum\DISPLAY\DELA1B3\5&1a2b&0&UID4352\Device Parameters`).
-pub fn parse_device_id(device_id: &str) -> Option<(String, String)> {
+/// → `SYSTEM\CurrentControlSet\Enum\DISPLAY\DELA1B3\5&1a2b&0&UID4352\Device Parameters`.
+pub fn parse_device_id(device_id: &str) -> Option<String> {
     let mut parts = device_id.split('#');
     let _prefix = parts.next()?;
     let hardware = parts.next().filter(|h| h.len() >= 3)?;
     let instance = parts.next().filter(|i| !i.is_empty())?;
-    let manufacturer = hardware.get(..3)?.to_ascii_uppercase();
-    let key =
-        format!(r"SYSTEM\CurrentControlSet\Enum\DISPLAY\{hardware}\{instance}\Device Parameters");
-    Some((manufacturer, key))
+    Some(format!(
+        r"SYSTEM\CurrentControlSet\Enum\DISPLAY\{hardware}\{instance}\Device Parameters"
+    ))
 }
 
 #[cfg(windows)]
@@ -120,23 +119,12 @@ mod win32 {
     }
 
     fn info_for(device_id: &str) -> Option<MonitorInfo> {
-        let (manufacturer, key) = parse_device_id(device_id)?;
-        let from_edid = read_edid(&key).and_then(|edid| {
-            ddc_hi::DisplayInfo::from_edid(ddc_hi::Backend::WinApi, device_id.into(), edid).ok()
-        });
-        Some(match from_edid {
-            Some(edid) => MonitorInfo {
-                name: edid.model_name.unwrap_or_default(),
-                manufacturer: edid.manufacturer_id.or(Some(manufacturer)),
-                serial: edid.serial_number,
-            },
-            // No EDID: the name stays the API's description (filled in by
-            // the caller), but the PnP code still identifies a Dell.
-            None => MonitorInfo {
-                name: String::new(),
-                manufacturer: Some(manufacturer),
-                serial: None,
-            },
+        let edid = read_edid(&parse_device_id(device_id)?)?;
+        let edid =
+            ddc_hi::DisplayInfo::from_edid(ddc_hi::Backend::WinApi, device_id.into(), edid).ok()?;
+        Some(MonitorInfo {
+            name: edid.model_name.unwrap_or_default(),
+            serial: edid.serial_number,
         })
     }
 
@@ -179,20 +167,12 @@ mod tests {
 
     #[test]
     fn parses_device_interface_names() {
-        let (mfg, key) = parse_device_id(
-            r"\\?\DISPLAY#DELA1B3#5&1a2b3c&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}",
-        )
-        .unwrap();
-        assert_eq!(mfg, "DEL");
         assert_eq!(
-            key,
+            parse_device_id(
+                r"\\?\DISPLAY#DELA1B3#5&1a2b3c&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}",
+            )
+            .unwrap(),
             r"SYSTEM\CurrentControlSet\Enum\DISPLAY\DELA1B3\5&1a2b3c&0&UID4352\Device Parameters"
-        );
-        assert_eq!(
-            parse_device_id(r"\\?\DISPLAY#gsm5b7f#4&abc&0&UID1#{x}")
-                .unwrap()
-                .0,
-            "GSM"
         );
     }
 

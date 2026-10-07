@@ -1,12 +1,12 @@
 [package]
-name = "dellctl"
+name = "monitorctl"
 version = "0.1.0"
 edition = "2024"
-description = "Control a Dell monitor's input, brightness, and speakers from the terminal over DDC/CI"
+description = "Control a monitor's input, brightness, and speakers from the terminal over DDC/CI"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/davemjones/dell-monitor-control"
 readme = "README.md"
-keywords = ["dell", "monitor", "ddc", "brightness", "cli"]
+keywords = ["monitor", "ddc", "ddc-ci", "brightness", "cli"]
 categories = ["command-line-utilities", "hardware-support"]
 
 [dependencies]

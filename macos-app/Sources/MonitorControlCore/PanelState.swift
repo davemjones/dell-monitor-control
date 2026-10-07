@@ -2,7 +2,7 @@ import Foundation
 
 /// Something that stops the panel from showing the monitor.
 public enum Problem: Equatable, Sendable {
-    case cantRunDellctl
+    case cantRunMonitorctl
     case noMonitor
     case multipleMonitors
     case unreachable(name: String)
@@ -14,8 +14,8 @@ public enum Problem: Equatable, Sendable {
 
     public var title: String {
         switch self {
-        case .cantRunDellctl: "Couldn't run dellctl. Try reinstalling the app."
-        case .noMonitor: "No Dell monitor detected"
+        case .cantRunMonitorctl: "Couldn't run monitorctl. Try reinstalling the app."
+        case .noMonitor: "No monitor detected"
         case .multipleMonitors: "Multiple monitors found — not supported yet."
         case .unreachable(let name): "Can't reach \(name)"
         case .timedOut: "The monitor didn't respond."
@@ -27,7 +27,7 @@ public enum Problem: Equatable, Sendable {
         switch self {
         case .noMonitor, .unreachable: Self.ddcHint
         case .failed(let message): message
-        case .cantRunDellctl, .multipleMonitors, .timedOut: nil
+        case .cantRunMonitorctl, .multipleMonitors, .timedOut: nil
         }
     }
 }
@@ -37,11 +37,11 @@ public enum PanelState: Equatable, Sendable {
     case ready(MonitorStatus)
     case problem(Problem)
 
-    /// The panel state for the result of `dellctl status --json`.
+    /// The panel state for the result of `monitorctl status --json`.
     public init(statusResult result: RunResult) {
         switch result {
         case .launchFailed:
-            self = .problem(.cantRunDellctl)
+            self = .problem(.cantRunMonitorctl)
         case .timedOut:
             self = .problem(.timedOut)
         case .finished(exitCode: 0, let stdout, _):
@@ -57,7 +57,7 @@ public enum PanelState: Equatable, Sendable {
             return .problem(.multipleMonitors)
         }
         guard let status = try? JSONDecoder().decode(MonitorStatus.self, from: json) else {
-            return .problem(.failed(message: "dellctl gave an answer the app couldn't read."))
+            return .problem(.failed(message: "monitorctl gave an answer the app couldn't read."))
         }
         // Found, but nothing readable: DDC/CI is off or blocked.
         if status.input == nil && status.inputs == nil && status.brightness == nil {
