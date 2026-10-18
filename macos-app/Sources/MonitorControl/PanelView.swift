@@ -61,8 +61,14 @@ struct PanelView: View {
             if model.state == .loading || model.retrying {
                 ProgressView().controlSize(.small)
             }
+            Text("Version \(Self.version)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
+
+    private static let version =
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
 }
 
 /// Resizes the open panel to fit `height` of content, keeping its top edge
@@ -82,9 +88,6 @@ private func fit(_ window: NSWindow?, toContentHeight height: CGFloat) {
 private struct Footer: View {
     let model: StatusModel
 
-    private static let version =
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle(
@@ -103,14 +106,18 @@ private struct Footer: View {
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack {
-                Button("Quit Monitor Control") { NSApplication.shared.terminate(nil) }
-                    .buttonStyle(.plain)
-                Spacer()
-                Text("Version \(Self.version)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                HStack {
+                    Text("Quit")
+                    Spacer()
+                    Text("⌘Q").foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .keyboardShortcut("q")
         }
     }
 }
