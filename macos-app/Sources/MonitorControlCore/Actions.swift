@@ -42,6 +42,9 @@ public struct BrightnessWriter: Sendable {
         lastWritten = current
     }
 
+    /// A write is in flight, so the slider is ahead of the monitor.
+    public var isWriting: Bool { writing }
+
     /// The slider moved to `value`. Returns a level to write now, if any.
     public mutating func want(_ value: Int) -> Int? {
         if writing {

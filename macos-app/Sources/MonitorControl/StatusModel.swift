@@ -2,8 +2,8 @@ import AppKit
 import MonitorControlCore
 import Observation
 
-/// The panel's view of the monitor, read fresh from monitorctl each time it opens,
-/// and the changes made from it.
+/// The panel's view of the monitor, read from monitorctl at launch and again in
+/// the background each time the panel opens, and the changes made from it.
 @MainActor
 @Observable
 final class StatusModel {
@@ -28,24 +28,37 @@ final class StatusModel {
     @ObservationIgnored private var tail: Task<Void, Never>?
     @ObservationIgnored private let monitorctl = Monitorctl.bundled()
 
+    /// Reads the monitor straight away, so the panel has it before its first open.
+    init() {
+        refresh()
+    }
+
+    /// Re-reads the monitor, leaving what's on screen in place until the answer arrives.
     func refresh() {
         // Opening the panel can trigger this twice; one refresh at a time.
         guard !refreshing else { return }
         refreshing = true
-        state = .loading
         actionError = nil
         // May have changed in System Settings since the panel last opened.
         loginItem = LoginItem.state
         loginItemError = nil
         serial { [self] in
             state = PanelState(statusResult: await monitorctl.run(["status", "--json"]))
-            if case .ready(let status) = state {
+            // A slider drag during the refresh is newer than what was just read.
+            if case .ready(let status) = state, !writer.isWriting {
                 confirmedBrightness = status.brightness
                 writer = BrightnessWriter(current: status.brightness)
                 brightness = Double(status.brightness ?? 0)
             }
             refreshing = false
         }
+    }
+
+    /// Re-reads the monitor after a problem, showing the loading state meanwhile.
+    func retry() {
+        guard !refreshing else { return }
+        state = .loading
+        refresh()
     }
 
     func switchInput(to input: InputEntry) {

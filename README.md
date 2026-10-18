@@ -267,7 +267,7 @@ The app isn't signed by a registered developer. An app you build yourself opens 
 - **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
 - **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
 - **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
-- Readings are taken each time the panel opens, so changes made with the monitor's buttons show up the next time you open it.
+- Readings are taken when the app starts and again each time the panel opens. The panel shows the last readings straight away and updates them in place, so changes made with the monitor's buttons appear a moment after you open it.
 
 To run the app's tests: `swift test --package-path macos-app`.
 

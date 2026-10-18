@@ -56,6 +56,18 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
     #expect(writer.want(100) == nil)  // no repeat write
 }
 
+@Test func writerReportsAWriteInFlight() {
+    var writer = BrightnessWriter(current: 50)
+    #expect(!writer.isWriting)
+    _ = writer.want(60)
+    #expect(writer.isWriting)
+    _ = writer.want(70)
+    #expect(writer.finished() == 70)
+    #expect(writer.isWriting)  // the queued value is now in flight
+    #expect(writer.finished() == nil)
+    #expect(!writer.isWriting)
+}
+
 @Test func writerSkipsAPendingValueThatWasAlreadyWritten() {
     var writer = BrightnessWriter(current: 50)
     #expect(writer.want(60) == 60)

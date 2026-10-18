@@ -27,7 +27,7 @@ struct PanelView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             case .problem(let problem):
-                ProblemView(problem: problem, retry: model.refresh)
+                ProblemView(problem: problem, retry: model.retry)
             }
             Divider()
             Footer(model: model)
