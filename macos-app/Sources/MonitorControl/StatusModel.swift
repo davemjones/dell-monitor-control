@@ -19,6 +19,8 @@ final class StatusModel {
     private(set) var loginItem = LoginItem.state
     /// Why the last Launch at login change didn't happen.
     private(set) var loginItemError: String?
+    /// A Retry is reading the monitor.
+    private(set) var retrying = false
 
     @ObservationIgnored weak var panelWindow: NSWindow?
     @ObservationIgnored private var refreshing = false
@@ -51,13 +53,14 @@ final class StatusModel {
                 brightness = Double(status.brightness ?? 0)
             }
             refreshing = false
+            retrying = false
         }
     }
 
-    /// Re-reads the monitor after a problem, showing the loading state meanwhile.
+    /// Re-reads the monitor after a problem, keeping the problem on screen meanwhile.
     func retry() {
         guard !refreshing else { return }
-        state = .loading
+        retrying = true
         refresh()
     }
 

@@ -27,13 +27,21 @@ struct PanelView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             case .problem(let problem):
-                ProblemView(problem: problem, retry: model.retry)
+                ProblemView(problem: problem, retrying: model.retrying, retry: model.retry)
             }
             Divider()
             Footer(model: model)
         }
         .padding(14)
         .frame(width: 280)
+        .fixedSize(horizontal: false, vertical: true)
+        // The menu bar extra only sizes its window as it opens, so follow later
+        // changes in the content's height ourselves.
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+            fit(model.panelWindow, toContentHeight: height)
+        }
+        // Keep the content under the menu bar if the window is ever taller.
+        .frame(maxHeight: .infinity, alignment: .top)
         .onAppear(perform: model.refresh)
         .background(
             PanelOpenObserver { window in
@@ -50,11 +58,25 @@ struct PanelView: View {
                 Text("Monitor Control").font(.headline).foregroundStyle(.secondary)
             }
             Spacer()
-            if model.state == .loading {
+            if model.state == .loading || model.retrying {
                 ProgressView().controlSize(.small)
             }
         }
     }
+}
+
+/// Resizes the open panel to fit `height` of content, keeping its top edge
+/// against the menu bar.
+@MainActor
+private func fit(_ window: NSWindow?, toContentHeight height: CGFloat) {
+    guard let window, window.isVisible else { return }
+    let content = window.contentRect(forFrameRect: window.frame)
+    let target = (height + window.frame.height - content.height).rounded()
+    guard abs(window.frame.height - target) >= 1 else { return }
+    var frame = window.frame
+    frame.origin.y = frame.maxY - target
+    frame.size.height = target
+    window.setFrame(frame, display: true)
 }
 
 private struct Footer: View {
@@ -183,6 +205,7 @@ private struct BrightnessSection: View {
 
 private struct ProblemView: View {
     let problem: Problem
+    let retrying: Bool
     let retry: () -> Void
 
     var body: some View {
@@ -196,6 +219,7 @@ private struct ProblemView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Button("Retry", action: retry)
+                .disabled(retrying)
         }
     }
 }
