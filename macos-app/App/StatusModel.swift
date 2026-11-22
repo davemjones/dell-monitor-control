@@ -2,8 +2,9 @@ import AppKit
 import MonitorControlCore
 import Observation
 
-/// The panel's view of the monitor, read from monitorctl at launch and again in
-/// the background each time the panel opens, and the changes made from it.
+/// The app's view of the monitor, read from monitorctl at launch and again in
+/// the background each time the panel or Settings opens, and the changes made
+/// from either.
 @MainActor
 @Observable
 final class StatusModel {
@@ -23,6 +24,11 @@ final class StatusModel {
     private(set) var loginItemError: String?
     /// A Retry is reading the monitor.
     private(set) var retrying = false
+    /// Why the last name change made in Settings didn't happen, by input code.
+    private(set) var nameErrors: [String: String] = [:]
+
+    /// Opens the Settings window; set by the app delegate.
+    @ObservationIgnored var openSettings: () -> Void = {}
 
     @ObservationIgnored weak var panelWindow: NSWindow?
     @ObservationIgnored private var refreshing = false
@@ -100,26 +106,33 @@ final class StatusModel {
     func commitRename(_ input: InputEntry, to text: String) {
         guard renaming == input.code else { return }
         renaming = nil
-        rename(input, to: text)
+        actionError = nil
+        rename(input, to: text) { [self] in actionError = $0 }
     }
 
     /// Goes back to the input's built-in name.
     func resetName(_ input: InputEntry) {
-        rename(input, to: "")
+        actionError = nil
+        rename(input, to: "") { [self] in actionError = $0 }
+    }
+
+    /// Saves a name typed in Settings; a failure shows under that input's field.
+    func saveName(_ input: InputEntry, to text: String) {
+        nameErrors[input.code] = nil
+        rename(input, to: text) { [self] in nameErrors[input.code] = $0 }
     }
 
     /// Shows the new name straight away, then saves it with monitorctl and
-    /// puts the old one back if that fails.
-    private func rename(_ input: InputEntry, to text: String) {
+    /// puts the old one back (and reports why) if that fails.
+    private func rename(_ input: InputEntry, to text: String, failed: @escaping (String) -> Void) {
         let wanted = input.newLabel(from: text)
         guard wanted != input.label else { return }
-        actionError = nil
         relabel(input.code, wanted)
         serial { [self] in
             let result = await monitorctl.run(input.renameArguments(wanted))
             if let message = failureMessage(of: result) {
                 relabel(input.code, input.label)
-                actionError = message
+                failed(message)
             } else if let saved = parseRename(result) {
                 relabel(saved.code, saved.label)
             }

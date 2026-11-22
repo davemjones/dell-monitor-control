@@ -7,7 +7,7 @@ Read this before changing anything in this repository, then read `README.md` (th
 Two products in one repo:
 
 1. **`monitorctl`** (Rust, repo root): a cross-platform CLI that controls a monitor over **DDC/CI**. It lists monitors, reads and switches inputs, and reads and sets brightness, volume, and speaker mute. Every command accepts `--json`. No daemon; the only file it keeps is the user's input names (`names.json`, see `src/names.rs`). Each run reads the monitor live, does one thing, and exits.
-2. **Monitor Control** (Swift/SwiftUI, `macos-app/`): a macOS menu bar app. It is a **front end only**. It runs a bundled copy of `monitorctl` and reads its JSON. It never talks DDC/CI itself.
+2. **Monitor Control** (Swift/SwiftUI, `macos-app/`): a macOS 27+ app with a Settings window and an optional menu bar panel (Control Center controls are being added on `feature/control-center-controls`). It is a **front end only**. It runs a bundled copy of `monitorctl` and reads its JSON. It never talks DDC/CI itself.
 
 Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference distro).
 
@@ -34,10 +34,14 @@ Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference
 | `src/backend/windows_edid.rs` | Windows: reads the registry EDID for real model names and serials. `parse_device_id` is pure and tested on every OS |
 | `src/backend/linux_i2c.rs` | Linux: when no monitors are found, probes `/dev/i2c-*` to explain missing `i2c-dev` or permissions. `diagnose` is pure and tested on every OS |
 | `macos-app/Sources/MonitorControlCore/` | Testable app logic: `Monitorctl.swift` (process runner with timeout), `Models.swift` (JSON shapes), `PanelState.swift` (status → panel state / problems), `Actions.swift` (`BrightnessWriter`, error messages), `InputLabels.swift` |
-| `macos-app/Sources/MonitorControl/` | The app shell: `MonitorControlApp.swift`, `StatusModel.swift` (state + serialized `monitorctl` runs), `PanelView.swift` (SwiftUI panel), `LoginItem.swift` |
+| `macos-app/Sources/MonitorControlCore/LaunchGate.swift` | Decides whether a launch opens Settings (not for login-item launches or control actions) |
+| `macos-app/App/` | The app shell: `MonitorControlApp.swift` (app delegate, optional menu bar icon, launch handling), `StatusModel.swift` (state + serialized `monitorctl` runs), `PanelView.swift` (menu bar panel), `SettingsView.swift` (Settings window), `LoginItem.swift`, `Assets.xcassets` |
+| `macos-app/MonitorControl.xcodeproj/` | Xcode project in the JSON `project.xcproj` format: the app target and a `MonitorControlCore` framework built from `Sources/MonitorControlCore`. A copy phase bundles `../target/release/monitorctl` at `Contents/Helpers/` and signs it |
+| `macos-app/Config/` | `MonitorControl.xcconfig` (shared), which includes the git-ignored `Signing.local.xcconfig` (Team ID; see the `.example`) and `Version.xcconfig` (written by `build.sh`) |
+| `macos-app/Package.swift` | SwiftPM package for `MonitorControlCore` and its tests only, so `swift test` runs without building the app |
 | `macos-app/Tests/MonitorControlCoreTests/` | Swift Testing tests for the core module |
 | `macos-app/Icon/make-icon.swift` | Draws the app icon (not an SF Symbol: Apple's license forbids those in app icons) |
-| `macos-app/build.sh` | Builds `target/Monitor Control.app` with `monitorctl` at `Contents/Helpers/monitorctl`, ad-hoc signed |
+| `macos-app/build.sh` | Builds `monitorctl`, draws the icon into the asset catalog, and runs `xcodebuild`; leaves a signed `target/Monitor Control.app` |
 | `.cargo/config.toml` | Windows-only static CRT link flag. Keep it |
 | `.github/workflows-disabled/` | CI and release workflows, **parked**. Do not move them to `.github/workflows/` unless asked |
 | `specs/` | Feature specs. A **separate, private git repository** (`davemjones/dell-monitor-control-specs`), ignored by this project. See [Features across both repositories](#features-across-both-repositories) |
@@ -53,16 +57,16 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-macOS app (needs Rust plus Apple Command Line Tools; full Xcode is not required):
+macOS app (needs Rust plus Xcode 27.2+, and `macos-app/Config/Signing.local.xcconfig` with your Team ID):
 
 ```sh
 swift test --package-path macos-app         # core-module tests
 ./macos-app/build.sh                        # → target/Monitor Control.app
 ```
 
-All of the above must pass before committing. A `nom v3.2.1` "future incompatibility" warning comes from a dependency and is expected. `Package.swift` passes the Command Line Tools' Swift Testing plugin path explicitly so `swift test` works without Xcode; don't remove that.
+All of the above must pass before committing. A `nom v3.2.1` "future incompatibility" warning comes from a dependency and is expected. `Package.swift` passes the Command Line Tools' Swift Testing plugin path explicitly so `swift test` also works with only the Command Line Tools selected; don't remove that.
 
-The app version comes from `Cargo.toml`'s `version`, which `build.sh` writes into `Info.plist`. The release workflow requires the git tag to match it. Every new feature bumps it (see [Features across both repositories](#features-across-both-repositories)).
+The app version comes from `Cargo.toml`'s `version`, which `build.sh` writes into `Config/Version.xcconfig` for Xcode. The release workflow requires the git tag to match it. Every new feature bumps it (see [Features across both repositories](#features-across-both-repositories)).
 
 ## Architecture rules
 
@@ -96,7 +100,9 @@ The app's decoding lives in `macos-app/Sources/MonitorControlCore/Models.swift` 
 
 ## Menu bar app behavior (keep when changing it)
 
-- Reads `status --json` at launch, then again in the background each time the panel opens. The panel shows the last readings immediately and updates in place. The loading state appears only at startup and during Retry (which keeps the problem visible with a spinner).
+- An agent app (`LSUIElement`). The menu bar icon is optional and **off by default** (`showMenuBarIcon` in `UserDefaults`, toggled in Settings).
+- Opening the app shows **Settings**: on launch after `LaunchGate.grace` unless it was started as a login item (or, once controls exist, to run an action), and on every reopen while running. Settings has the input names, Show menu bar icon, Launch at login, a Control Center guide, and Quit. Names save through `input name` like the panel's Rename…, with errors shown under the field.
+- Reads `status --json` at launch, then again in the background each time the panel or Settings opens. The panel shows the last readings immediately and updates in place. The loading state appears only at startup and during Retry (which keeps the problem visible with a spinner).
 - **Only one `monitorctl` runs at a time** (`StatusModel.serial`), so DDC/CI commands never overlap. Each run has a 10s timeout.
 - Switching input runs `input set <code> --json` and closes the panel on success.
 - Right-click an input → Rename… edits the row in place (Return or losing focus saves, Esc cancels); Reset Name clears it. Saving runs `input name <code> <name> --json` (or `--clear`), shows the new name immediately, and restores the old one on failure. The app never writes `names.json` itself.
@@ -132,7 +138,7 @@ Git worktrees of this project don't include `specs/` (it's ignored). If you work
 - **Comments:** brief doc comments that explain *why*; match the density of surrounding code.
 - **Update `README.md`** when behavior, output, setup steps, Known limitations, or Troubleshooting change. Update `LINUX_PROMPT.md` / `WINDOWS_PROMPT.md` when what they describe changes.
 - **Commits:** only when asked. One logical change per commit. Short imperative subject line, with a body explaining why (see `git log`).
-- **Never commit** build output (`target/`, `macos-app/.build/`), signing identities, certificates, or tokens. The app uses ad-hoc signing only.
+- **Never commit** build output (`target/`, `macos-app/.build/`), signing identities, certificates, or tokens. Signing uses the developer's own team via the git-ignored `Signing.local.xcconfig`; never commit a Team ID.
 
 ## Known limitations to keep in mind
 

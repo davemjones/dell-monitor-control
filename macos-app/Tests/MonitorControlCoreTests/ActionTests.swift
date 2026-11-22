@@ -139,3 +139,11 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
     writer.failed(current: 50)
     #expect(writer.want(70) == 70)
 }
+
+@Test func launchGateOpensSettingsOnlyForAPersonsLaunch() {
+    #expect(LaunchGate(isLoginItem: false).showsSettings)
+    #expect(!LaunchGate(isLoginItem: true).showsSettings)
+    var action = LaunchGate(isLoginItem: false)
+    action.noteAction()
+    #expect(!action.showsSettings)
+}

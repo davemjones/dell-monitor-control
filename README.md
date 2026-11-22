@@ -295,23 +295,25 @@ Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 
 ## Menu bar app (macOS)
 
-**Monitor Control** puts a monitor icon in the macOS menu bar. Click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It has no Dock icon or window. It does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
+**Monitor Control** controls the monitor from macOS. It needs macOS 27 or later on Apple Silicon. It has no Dock icon. Opening it shows its **Settings** window, where you name your inputs and choose whether it shows a monitor icon in the menu bar (off by default). With the icon on, click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
 
 ### Build it
 
-You need [Rust](https://rustup.rs) and Apple's Command Line Tools (`xcode-select --install`). The full Xcode app isn't needed. Then:
+You need [Rust](https://rustup.rs) and Xcode 27.2 or later, signed in with an Apple ID (Xcode › Settings › Accounts; a free Personal Team is enough).
 
-```sh
-./macos-app/build.sh
-```
+1. Copy `macos-app/Config/Signing.local.xcconfig.example` to `macos-app/Config/Signing.local.xcconfig` and set your Team ID: the 10-character code next to your team in Xcode › Settings › Accounts. That file is git-ignored.
+2. Build:
+   ```sh
+   ./macos-app/build.sh
+   ```
 
-This builds `monitorctl` and the app, puts `monitorctl` inside it, and leaves `Monitor Control.app` in `target/`.
+This builds `monitorctl` and the app with Xcode, puts `monitorctl` inside it, signs both with your team, and leaves `Monitor Control.app` in `target/`. You can also open `macos-app/MonitorControl.xcodeproj` in Xcode, after running `cargo build --release` once so there's a `monitorctl` to bundle.
 
 ### Install it
 
 1. Drag `target/Monitor Control.app` into `/Applications` (or run `cp -R "target/Monitor Control.app" /Applications/`).
-2. Open it from `/Applications`. The monitor icon appears in the menu bar.
-3. To start it automatically, tick **Launch at login** at the bottom of its panel. It's added to System Settings › General › Login Items, where you can also turn it off. Turn it on from the copy in `/Applications`, since the login item remembers where the app was.
+2. Open it from `/Applications`. Its Settings window opens. Opening the app again at any time brings Settings back.
+3. To start it automatically, turn on **Launch at login** in Settings (or at the bottom of the menu bar panel). It's added to System Settings › General › Login Items, where you can also turn it off. Turn it on from the copy in `/Applications`, since the login item remembers where the app was.
 
 The app isn't signed by a registered developer. An app you build yourself opens normally. If you copy it from another Mac and macOS blocks it, right-click it and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Monitor Control.app"` (see [above](#macos-unidentified-developer-warning)).
 
@@ -319,7 +321,8 @@ The app isn't signed by a registered developer. An app you build yourself opens 
 
 - **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
 - **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
-- **Naming inputs:** right-click (or Control-click) an input and choose **Rename…**, type a name, and press Return; Esc cancels. **Reset Name** goes back to the built-in one. The names are the same ones `monitorctl input name` sets.
+- **Naming inputs:** type a name next to each input in Settings and press Return; clear the field to go back to the built-in name. In the menu bar panel you can also right-click (or Control-click) an input and choose **Rename…** or **Reset Name**. The names are the same ones `monitorctl input name` sets.
+- **Settings…** in the menu bar panel's footer (⌘,) opens Settings; Settings also has **Quit Monitor Control**, since with the icon off there's no menu to quit from.
 - **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
 - Readings are taken when the app starts and again each time the panel opens. The panel shows the last readings straight away and updates them in place, so changes made with the monitor's buttons appear a moment after you open it.
 

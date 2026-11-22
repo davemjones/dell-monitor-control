@@ -107,6 +107,19 @@ private struct Footer: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Button {
+                model.panelWindow?.close()
+                model.openSettings()
+            } label: {
+                HStack {
+                    Text("Settings…")
+                    Spacer()
+                    Text("⌘,").foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(",")
+            Button {
                 NSApplication.shared.terminate(nil)
             } label: {
                 HStack {

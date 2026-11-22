@@ -10,14 +10,15 @@ let testSettings: [SwiftSetting] =
     FileManager.default.fileExists(atPath: cltTestingPlugins)
     ? [.unsafeFlags(["-plugin-path", cltTestingPlugins])] : []
 
+// Only the app's testable core lives here, so `swift test` runs without Xcode.
+// The app itself (App/), and a framework built from these same sources, are
+// built by MonitorControl.xcodeproj.
 let package = Package(
     name: "MonitorControl",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS("27.0")],
     targets: [
         // Talks to the bundled monitorctl and turns its answers into panel state.
         .target(name: "MonitorControlCore"),
-        // The menu bar app itself.
-        .executableTarget(name: "MonitorControl", dependencies: ["MonitorControlCore"]),
         .testTarget(
             name: "MonitorControlCoreTests",
             dependencies: ["MonitorControlCore"],
