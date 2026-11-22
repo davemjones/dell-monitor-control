@@ -18,6 +18,8 @@ notes=""
 if [ "${1:-}" = "--draft" ]; then
     notes=${2:?"usage: $0 [--draft NOTES.md]"}
     [ -f "$notes" ] || { echo "error: no release notes at $notes" >&2; exit 1; }
+    # Absolute, since the script changes directory before calling gh.
+    notes="$(cd "$(dirname "$notes")" && pwd)/$(basename "$notes")"
 fi
 
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
@@ -39,7 +41,7 @@ out="$repo/target/release-assets/$tag"
 rm -rf "$out"
 mkdir -p "$out"
 
-echo "Building monitorctl $version…"
+echo "Building monitorctl ${version}…"
 cargo build --release --locked
 
 cli="monitorctl-$tag-macos-arm64"
@@ -48,7 +50,7 @@ cp target/release/monitorctl README.md LICENSE-MIT LICENSE-APACHE "$out/$cli/"
 tar -czf "$out/$cli.tar.gz" -C "$out" "$cli"
 rm -rf "${out:?}/$cli"
 
-echo "Building Monitor Control $version…"
+echo "Building Monitor Control ${version}…"
 "$repo/macos-app/build.sh"
 app="Monitor-Control-$tag-macos-arm64"
 ditto -c -k --keepParent "$repo/target/Monitor Control.app" "$out/$app.zip"
