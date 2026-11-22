@@ -1,0 +1,52 @@
+# Maintainer: David Jones
+#
+# Source of truth for the AUR package `monitorctl`. It's published from an
+# Arch machine after each GitHub release; see specs/releases/<version>/tasks.md.
+# Not to be confused with the unrelated `monitorctl-bin` on the AUR.
+
+pkgname=monitorctl
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="Control a monitor's input, brightness, and speakers from the terminal over DDC/CI"
+arch=('x86_64' 'aarch64')
+url="https://github.com/davemjones/dell-monitor-control"
+license=('MIT OR Apache-2.0')
+depends=('glibc' 'libgcc' 'systemd-libs')
+makedepends=('cargo')
+conflicts=('monitorctl-bin')
+install=monitorctl.install
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# Filled in by `updpkgsums` once the v$pkgver tag exists.
+sha256sums=('SKIP')
+
+_src="dell-monitor-control-$pkgver"
+
+prepare() {
+  cd "$_src"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$_src"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
+
+check() {
+  cd "$_src"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen
+}
+
+package() {
+  cd "$_src"
+  install -Dm755 target/release/monitorctl "$pkgdir/usr/bin/monitorctl"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE-MIT "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+  install -Dm644 LICENSE-APACHE "$pkgdir/usr/share/licenses/$pkgname/LICENSE-APACHE"
+  # DDC/CI needs /dev/i2c-*: load i2c-dev at boot and give the logged-in user access.
+  install -Dm644 packaging/aur/monitorctl.conf "$pkgdir/usr/lib/modules-load.d/monitorctl.conf"
+  install -Dm644 packaging/aur/60-monitorctl-i2c.rules "$pkgdir/usr/lib/udev/rules.d/60-monitorctl-i2c.rules"
+}

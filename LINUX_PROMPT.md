@@ -23,6 +23,7 @@ Every read command takes `--json`. One codebase builds for macOS (Apple Silicon)
 | Path | What it is |
 |---|---|
 | `src/main.rs` | Entry point. Prints output, or errors (`error: …` as text, or JSON with `--json`) |
+| `packaging/aur/` | The AUR package `monitorctl`: `PKGBUILD` (builds from the tag's source tarball, runs `cargo test`, `arch=('x86_64' 'aarch64')`), `monitorctl.install`, and the `i2c-dev` modules-load and `uaccess` udev files it installs. Keep it working when Linux build steps or dependencies change |
 | `src/cli.rs` | clap argument definitions (`Cli`, `Command`, `InputAction`, `Level`) |
 | `src/commands.rs` | All command logic, written against the `Backend`/`Monitor` traits. Most tests live here |
 | `src/output.rs` | Output structs (`Status`, `InputEntry`, …) and text/JSON rendering |
@@ -118,6 +119,7 @@ Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show u
 
 ## How to make changes
 
+- **Release builds** for Linux x64 and ARM64 happen in `ubuntu:22.04` containers (glibc ≤ 2.35) and the AUR package is published from an Arch machine; follow `specs/releases/<version>/tasks.md`.
 - **Keep platform code at the edge.** `src/commands.rs` must stay platform-neutral. Linux fixes belong in `src/backend/ddc.rs` (behind `#[cfg(target_os = "linux")]`) or `src/backend/linux_i2c.rs`.
 - **Every behavior change gets a test** in the existing `FakeBackend` style (`run_with(monitors, &["args"])` in `src/commands.rs`). Linux diagnostics are pure functions (`diagnose`) for exactly this reason; keep them that way so tests run on any OS.
 - **Don't break the other platforms.** Gate Linux-only code with `cfg`, and make sure `cargo test` still compiles everywhere. In particular, don't add Linux-only dependencies outside a `[target.'cfg(target_os = "linux")'.dependencies]` table in `Cargo.toml`.

@@ -9,7 +9,7 @@ Two products in one repo:
 1. **`monitorctl`** (Rust, repo root): a cross-platform CLI that controls a monitor over **DDC/CI**. It lists monitors, reads and switches inputs, and reads and sets brightness, volume, and speaker mute. Every command accepts `--json`. No daemon; the only file it keeps is the user's input names (`names.json`, see `src/names.rs`). Each run reads the monitor live, does one thing, and exits.
 2. **Monitor Control** (Swift/SwiftUI, `macos-app/`): a macOS 27+ app with Control Center controls (brightness, input, settings), Shortcuts actions, a Settings window, and an optional menu bar panel. It is a **front end only**. It runs a bundled copy of `monitorctl` and reads its JSON. It never talks DDC/CI itself.
 
-Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference distro).
+Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 and ARM64 (Arch is the reference distro; also published to the AUR as `monitorctl`).
 
 **Reference hardware:** Dell U3425WE. Inputs `dp` (0x0f), `hdmi` (0x11), `thunderbolt` (0x19). It does **not** support speaker mute over DDC/CI (reads as `null` / `n/a`), and it keeps a separate brightness per input.
 
@@ -47,6 +47,7 @@ Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference
 | `macos-app/Icon/make-icon.swift` | Draws the app icon (not an SF Symbol: Apple's license forbids those in app icons) |
 | `macos-app/build.sh` | Builds `monitorctl`, draws the icon into the asset catalog, and runs `xcodebuild`; leaves a signed `target/Monitor Control.app` |
 | `.cargo/config.toml` | Windows-only static CRT link flag. Keep it |
+| `packaging/aur/` | The AUR package `monitorctl` (source package): `PKGBUILD`, `monitorctl.install`, and the `i2c-dev` modules-load and `uaccess` udev files it installs from the source tarball. Published from an Arch machine after each release (`specs/releases/<version>/tasks.md`); its `sha256sums` and `.SRCINFO` are copied back here. Conflicts with the unrelated `monitorctl-bin` |
 | `scripts/release-macos.sh` | Builds a release's macOS assets (CLI archive, app zip, `.sha256` files) from the tagged source; `--draft NOTES.md` also creates the draft GitHub release. See [Releases](#releases) |
 | `specs/` | Feature specs. A **separate, private git repository** (`davemjones/dell-monitor-control-specs`), ignored by this project. See [Features across both repositories](#features-across-both-repositories) |
 
@@ -120,7 +121,7 @@ The app's decoding lives in `macos-app/Sources/MonitorControlCore/Models.swift` 
 ## Releases
 
 - **Never use GitHub workflows.** Every build, including release builds, is made locally. There is no CI.
-- Each release has `specs/releases/<version>/tasks.md` (see `specs/releases/README.md`): a checklist written so an agent on another machine can build its platform's assets (Linux x64 in an Ubuntu 22.04 container, Windows x64) and upload them with `gh`. Keep it after the release and record who built what, when, and the checksums.
+- Each release has `specs/releases/<version>/tasks.md` (see `specs/releases/README.md`): a checklist written so an agent on another machine can build its platform's assets (Linux x64 and ARM64 in Ubuntu 22.04 containers, Windows x64) and upload them with `gh`, and publish the AUR package from an Arch machine. Keep it after the release and record who built what, when, and the checksums.
 - This Mac tags `v<version>` (matching `Cargo.toml`), runs `scripts/release-macos.sh --draft NOTES.md` to build the macOS assets and create a **draft** release, and the other machines add theirs. Publish only when every asset and its `.sha256` file is attached.
 - The app is signed with the developer's team (Personal Team today) but not notarized, so downloaded copies need Privacy & Security › Open Anyway. Developer ID signing and notarization come with the paid Developer Program.
 
@@ -159,4 +160,4 @@ Git worktrees of this project don't include `specs/` (it's ignored). If you work
 - After switching input away from this computer, some setups lose DDC/CI. macOS over Thunderbolt to the U3425WE can still switch back.
 - Input names are keyed by monitor model, so identical monitors share them.
 - Only input, brightness, volume, and mute are supported (no contrast, color presets, KVM, or PbP/PiP).
-- The CLI binaries are unsigned; the app is signed with the developer's team but not notarized. The app needs macOS 27+ and supports one monitor. No Intel Mac, Windows on ARM, or Linux on ARM support.
+- The CLI binaries are unsigned; the app is signed with the developer's team but not notarized. The app needs macOS 27+ and supports one monitor. No Intel Mac or Windows on ARM support. Linux ARM64 is built but untested on hardware.

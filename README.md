@@ -1,6 +1,6 @@
 # monitorctl
 
-Control a monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Arch Linux.
+Control a monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Linux (x64 and ARM64; Arch users can install it from the AUR).
 
 On macOS there's also an app, [**Monitor Control**](#monitor-control-app-macos), that puts brightness and input switching in Control Center, with Shortcuts actions too.
 
@@ -31,9 +31,11 @@ Download the archive for your platform from the [latest release](https://github.
 |---|---|
 | macOS (Apple Silicon) | `monitorctl-vX.Y.Z-macos-arm64.tar.gz` |
 | Windows 11 (x64) | `monitorctl-vX.Y.Z-windows-x64.zip` |
-| Linux (x64), e.g. Arch | `monitorctl-vX.Y.Z-linux-x64.tar.gz` |
+| Linux (x64) | `monitorctl-vX.Y.Z-linux-x64.tar.gz` |
+| Linux (ARM64) | `monitorctl-vX.Y.Z-linux-arm64.tar.gz` |
+| Arch Linux (x64 or ARM64) | the [`monitorctl` AUR package](https://aur.archlinux.org/packages/monitorctl), see [below](#arch-linux-setup) |
 
-Each archive contains a folder with a single standalone `monitorctl` binary (`monitorctl.exe` on Windows), the README, and the licenses. Put the binary somewhere on your `PATH`. For the macOS app, see [Monitor Control app](#monitor-control-app-macos).
+The Linux binaries need glibc 2.35 or later (Ubuntu 22.04, Debian 12, Fedora 36, Arch, and newer). Each archive contains a folder with a single standalone `monitorctl` binary (`monitorctl.exe` on Windows), the README, and the licenses. Put the binary somewhere on your `PATH`. For the macOS app, see [Monitor Control app](#monitor-control-app-macos).
 
 Every download has a matching `.sha256` file. To check a download, put both in the same folder and run:
 
@@ -59,6 +61,18 @@ xattr -d com.apple.quarantine ./monitorctl
 You can also allow it under **System Settings → Privacy & Security** after the first blocked attempt.
 
 ### Arch Linux setup
+
+On Arch, install the [`monitorctl`](https://aur.archlinux.org/packages/monitorctl) package from the AUR, with an AUR helper (`yay -S monitorctl`) or by hand:
+
+```sh
+git clone https://aur.archlinux.org/monitorctl.git
+cd monitorctl
+makepkg -si
+```
+
+It builds `monitorctl` from source and sets up I²C access for you: it loads the `i2c-dev` module at every boot and gives the logged-in user access to `/dev/i2c-*`. Run `sudo modprobe i2c-dev` once (or reboot) and `monitorctl` is ready. It can't be installed alongside the unrelated `monitorctl-bin` package, which installs a different program with the same name.
+
+### Linux setup (without the AUR package)
 
 On Linux, DDC/CI goes through the kernel's I²C devices (`/dev/i2c-*`), and you need access to them.
 
@@ -364,7 +378,7 @@ Per-platform requirements:
 
 - **macOS (Apple Silicon):** install Rust with rustup; no other setup.
 - **Windows 11:** install Rust with rustup, plus the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload, which provides the MSVC linker. The project links the C runtime statically, so the resulting `.exe` runs on machines without the Visual C++ runtime.
-- **Arch Linux:** `sudo pacman -S --needed rustup base-devel pkgconf`, then `rustup default stable`. The `libudev` it links against comes with `systemd`, which every Arch install has. Do the [I²C setup](#arch-linux-setup) above before running it.
+- **Arch Linux:** `sudo pacman -S --needed rustup base-devel pkgconf`, then `rustup default stable`. The `libudev` it links against comes with `systemd`, which every Arch install has. Do the [I²C setup](#linux-setup-without-the-aur-package) above before running it.
 - **Debian/Ubuntu (for building only):** `sudo apt install libudev-dev pkg-config`.
 
 Run the tests with `cargo test`. They use a simulated monitor, so no hardware is needed.
@@ -377,7 +391,7 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 - **Input names belong to a monitor model**, so two identical monitors share the same names.
 - **The U3425WE keeps a separate brightness for each input.** `monitorctl brightness` reads and sets the brightness of the input that's currently showing.
 - **Windows and Linux** builds pass the test suite against a simulated monitor, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
-- **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs, Windows on ARM, and Linux on ARM aren't supported.
+- **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs and Windows on ARM aren't supported. Linux on ARM64 is built but hasn't been tried on real hardware yet.
 - **The Monitor Control app is macOS-only** (macOS 27 or later) and isn't notarized yet, so macOS asks you to approve it the first time (Privacy & Security › Open Anyway). There's no tray app for Windows or Linux.
 - **The app works with one monitor.** With several DDC/CI monitors connected it says so; use `monitorctl --monitor` for the others.
 - Only input, brightness, volume, and mute are supported. Contrast, color presets, KVM, and PbP/PiP aren't.
@@ -387,8 +401,8 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 | Message | What to do |
 |---|---|
 | `no DDC/CI-capable monitors found` | Turn on DDC/CI in the monitor's menu (Others → DDC/CI) and try a direct cable instead of a dock or adapter. On Windows, also update your graphics driver. |
-| `…the i2c-dev kernel module probably isn't loaded` (Linux) | Do step 1 of the [Arch I²C setup](#arch-linux-setup). |
-| `no permission to open /dev/i2c-N` (Linux) | Do steps 2–3 of the [Arch I²C setup](#arch-linux-setup). |
+| `…the i2c-dev kernel module probably isn't loaded` (Linux) | Install the [AUR package](#arch-linux-setup) and run `sudo modprobe i2c-dev`, or do step 1 of the [manual I²C setup](#linux-setup-without-the-aur-package). |
+| `no permission to open /dev/i2c-N` (Linux) | Do steps 2–3 of the [manual I²C setup](#linux-setup-without-the-aur-package) (the AUR package does this for you). |
 | `couldn't read … from <monitor>` / `couldn't change …` | The monitor didn't answer, even after automatic retries. Check DDC/CI is on and try a direct cable. |
 | `several monitors are connected; choose one with --monitor` | Add `--monitor <number or model>`; see `monitorctl list`. |
 | `doesn't support speaker mute over DDC/CI` | Use `monitorctl volume 0`. |
