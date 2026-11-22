@@ -57,7 +57,7 @@ How it works on Windows:
 ```powershell
 cargo build                 # debug
 cargo build --release       # → target\release\monitorctl.exe
-cargo test                  # 54 tests, simulated monitor, no hardware needed
+cargo test                  # simulated monitor, no hardware needed
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
@@ -119,7 +119,7 @@ Work through this with the U3425WE connected. Note what Windows actually reports
 The macOS app (`macos-app/`) sets the pattern for any Windows counterpart, which would be a notification-area (system tray) icon with a small flyout:
 - It's a **front end only**. It runs the bundled `monitorctl.exe` and reads its JSON, and must never talk DDC/CI itself or duplicate input, brightness, or selection rules. If the app needs data the CLI doesn't give, extend the CLI and its JSON.
 - Launch `monitorctl.exe` **without a console window** (`CREATE_NO_WINDOW`), or a terminal will flash on every call.
-- One `monitorctl status --json` call each time the flyout opens. A spinner shows while it loads; old values are never shown.
+- Read `monitorctl status --json` at launch, then again in the background each time the flyout opens. Show the last readings straight away and update them in place; the loading spinner appears only at startup and on Retry.
 - Switching inputs: `input set <code> --json`, then close the flyout on success.
 - Brightness: a slider that writes `brightness <n> --json` while dragging. Only one write is in flight at a time, values overtaken during a write are skipped, and the last value is always written. If a write fails, the slider snaps back to the real value from `brightness --json`.
 - Only one `monitorctl` runs at a time, so DDC/CI commands never overlap. Each run has a 10s timeout.
