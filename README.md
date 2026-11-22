@@ -311,7 +311,7 @@ Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 
 ## Monitor Control app (macOS)
 
-**Monitor Control** puts your monitor's brightness and inputs in macOS **Control Center**, so you don't need a terminal. It needs **macOS 27 or later** on Apple Silicon. It has no Dock icon, and it does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
+**Monitor Control** puts your monitor's brightness and inputs in macOS **Control Center**, so you don't need a terminal. It needs **macOS 27 or later** on Apple Silicon. It has no Dock icon, and it does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line. It controls brightness and inputs only; volume and speaker mute are in `monitorctl` for now.
 
 ### Install it
 
@@ -394,7 +394,7 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 - **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs and Windows on ARM aren't supported. Linux on ARM64 is built but hasn't been tried on real hardware yet.
 - **The Monitor Control app is macOS-only** (macOS 27 or later) and isn't notarized yet, so macOS asks you to approve it the first time (Privacy & Security › Open Anyway). There's no tray app for Windows or Linux.
 - **The app works with one monitor.** With several DDC/CI monitors connected it says so; use `monitorctl --monitor` for the others.
-- Only input, brightness, volume, and mute are supported. Contrast, color presets, KVM, and PbP/PiP aren't.
+- Only input, brightness, volume, and mute are supported, and the Mac app only does input and brightness (use `monitorctl` for volume and mute). Contrast, color presets, KVM, and PbP/PiP aren't.
 
 ## Troubleshooting
 

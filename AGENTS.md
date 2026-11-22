@@ -159,5 +159,5 @@ Git worktrees of this project don't include `specs/` (it's ignored). If you work
 - Docks, adapters, and KVMs can block DDC/CI.
 - After switching input away from this computer, some setups lose DDC/CI. macOS over Thunderbolt to the U3425WE can still switch back.
 - Input names are keyed by monitor model, so identical monitors share them.
-- Only input, brightness, volume, and mute are supported (no contrast, color presets, KVM, or PbP/PiP).
+- Only input, brightness, volume, and mute are supported (no contrast, color presets, KVM, or PbP/PiP). The Mac app only does input and brightness; volume and mute are CLI-only for now.
 - The CLI binaries are unsigned; the app is signed with the developer's team but not notarized. The app needs macOS 27+ and supports one monitor. No Intel Mac or Windows on ARM support. Linux ARM64 is built but untested on hardware.
