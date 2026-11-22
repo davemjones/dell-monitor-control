@@ -20,20 +20,50 @@
         { "path": "MonitorControl.xcconfig" },
         { "path": "Signing.local.xcconfig.example" },
       ],
-    },
-    {
+    }, {
       "kind": "group",
       "name": "Helpers",
       "children": [
         { "path": "<PROJECT>/../target/release/monitorctl", "target-membership": [ { "build-phase": "MonitorControl/copy/Bundle monitorctl", "code-sign-on-copy": true } ] },
       ],
-    },
-    {
+    }, {
+      "kind": "folder",
+      "path": "Controls",
+      "target-membership": [
+        "ControlsExtension",
+      ],
+      "membership-exceptions": [
+        {
+          "target": "ControlsExtension",
+          "exclusions": [
+            "Info.plist",
+          ],
+        },
+      ],
+    }, {
+      "kind": "group",
+      "name": "Frameworks",
+      "children": [
+        { "path": "/System/Library/Frameworks/WidgetKit.framework", "target-membership": [ "ControlsExtension/frameworks" ] },
+        { "path": "/System/Library/Frameworks/SwiftUI.framework", "target-membership": [ "ControlsExtension/frameworks" ] },
+      ],
+    }, {
       "kind": "group",
       "name": "Products",
       "children": [
         { "path": "<PRODUCTS>/Monitor Control.app", "id": "4D4300020000000000000001", "type": "wrapper.application", "index": false },
-        { "path": "<PRODUCTS>/MonitorControlCore.framework", "id": "4D4300020000000000000002", "type": "wrapper.framework", "index": false, "target-membership": [ "MonitorControl/frameworks", { "build-phase": "MonitorControl/copy/Embed Frameworks", "code-sign-on-copy": true, "header-preservation": "remove-on-copy" } ] },
+        {
+          "path": "<PRODUCTS>/MonitorControlCore.framework",
+          "id": "4D4300020000000000000002",
+          "type": "wrapper.framework",
+          "index": false,
+          "target-membership": [
+            "MonitorControl/frameworks",
+            { "build-phase": "MonitorControl/copy/Embed Frameworks", "code-sign-on-copy": true, "header-preservation": "remove-on-copy" },
+            "ControlsExtension/frameworks",
+          ],
+        },
+        { "path": "<PRODUCTS>/ControlsExtension.appex", "id": "DC07031530B385DC00143F75", "type": "wrapper.app-extension", "index": false, "target-membership": [ { "build-phase": "MonitorControl/copy/Embed Foundation Extensions", "header-preservation": "remove-on-copy" } ] },
       ],
     },
   ],
@@ -45,6 +75,7 @@
       "product-type": "application",
       "dependencies": [
         "MonitorControlCore",
+        "ControlsExtension",
       ],
       "build-phases": [
         "compile-sources",
@@ -54,12 +85,15 @@
           "kind": "copy",
           "name": "Embed Frameworks",
           "bundle-base-path": "frameworks-directory",
-        },
-        {
+        }, {
           "kind": "copy",
           "name": "Bundle monitorctl",
           "bundle-base-path": "contents-directory",
           "relative-path": "Helpers",
+        }, {
+          "kind": "copy",
+          "name": "Embed Foundation Extensions",
+          "bundle-base-path": "plugins-directory",
         },
       ],
       "build-settings": {
@@ -102,6 +136,37 @@
         "SKIP_INSTALL": "YES",
         "SWIFT_INSTALL_OBJC_HEADER": "NO",
         "VERSIONING_SYSTEM": "apple-generic",
+      },
+    }, {
+      "name": "ControlsExtension",
+      "id": "DC07031430B385DC00143F75",
+      "product": "Products/ControlsExtension.appex",
+      "product-type": "app-extension",
+      "dependencies": [
+        "MonitorControlCore",
+      ],
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+      ],
+      "build-settings": {
+        "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
+        "ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME": "WidgetBackground",
+        "CODE_SIGN_STYLE": "Automatic",
+        "ENABLE_APP_SANDBOX": "YES",
+        "ENABLE_HARDENED_RUNTIME": "YES",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_FILE": "Controls/Info.plist",
+        "INFOPLIST_KEY_CFBundleDisplayName": "Monitor Control",
+        "LD_RUNPATH_SEARCH_PATHS": [
+          "$(inherited)",
+          "@executable_path/../Frameworks",
+          "@executable_path/../../../../Frameworks",
+        ],
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.davemjones.monitor-control.controls",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "SKIP_INSTALL": "YES",
       },
     },
   ],

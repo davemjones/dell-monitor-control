@@ -147,3 +147,17 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
     action.noteAction()
     #expect(!action.showsSettings)
 }
+
+@Test func panelsOpenTopRightUnderTheMenuBar() {
+    // A 1512×982 screen whose visible area starts below a 37pt menu bar.
+    let visible = CGRect(x: 0, y: 0, width: 1512, height: 945)
+    #expect(panelOrigin(size: CGSize(width: 280, height: 120), visibleFrame: visible)
+        == CGPoint(x: 1224, y: 817))
+    // A second screen to the right, with its own origin.
+    let second = CGRect(x: 1512, y: -200, width: 3440, height: 1415)
+    #expect(panelOrigin(size: CGSize(width: 280, height: 120), visibleFrame: second)
+        == CGPoint(x: 4664, y: 1087))
+    // Never off the left or bottom edge, even if the panel is larger than the screen.
+    #expect(panelOrigin(size: CGSize(width: 2000, height: 2000), visibleFrame: visible)
+        == CGPoint(x: 0, y: 0))
+}

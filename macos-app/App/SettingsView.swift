@@ -49,6 +49,10 @@ struct SettingsView: View {
                     "Click Control Center in the menu bar, choose **Edit Controls**, and search for **Monitor Control** to add its brightness and input controls. You can also drag a control into the menu bar."
                 )
                 .fixedSize(horizontal: false, vertical: true)
+                Text(
+                    "To come back to these settings, open Monitor Control again from Applications or Spotlight, or use the **Monitor Control Settings** control."
+                )
+                .settingsFootnote()
             }
 
             Section("App") {

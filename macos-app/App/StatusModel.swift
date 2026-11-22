@@ -72,7 +72,8 @@ final class StatusModel {
         refresh()
     }
 
-    func switchInput(to input: InputEntry) {
+    /// Switches input, then closes the menu bar panel and calls `then`.
+    func switchInput(to input: InputEntry, then: @escaping () -> Void = {}) {
         guard !input.active, switchingTo == nil, case .ready = state else { return }
         switchingTo = input.code
         actionError = nil
@@ -87,6 +88,7 @@ final class StatusModel {
                 state = .ready(status.switched(to: input.code))
             }
             panelWindow?.close()
+            then()
         }
     }
 

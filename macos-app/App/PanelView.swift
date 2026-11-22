@@ -135,13 +135,18 @@ private struct Footer: View {
     }
 }
 
-private struct InputSection: View {
+/// The monitor's inputs; clicking one switches to it. Shared by the menu bar
+/// panel and the Control Center input panel (which can't rename).
+struct InputSection: View {
     static let placeholder = ["thunderbolt", "dp", "hdmi"].map {
         InputEntry(name: $0, code: "", active: false)
     }
 
     let model: StatusModel
     let inputs: [InputEntry]?
+    var allowsRename = true
+    /// Called after a successful switch.
+    var onSwitched: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -165,7 +170,7 @@ extension InputSection {
     private func row(_ input: InputEntry) -> some View {
         let switching = model.switchingTo == input.code
         return Button {
-            model.switchInput(to: input)
+            model.switchInput(to: input, then: onSwitched)
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "checkmark")
@@ -188,12 +193,7 @@ extension InputSection {
         }
         .buttonStyle(.plain)
         .disabled((model.switchingTo != nil && !switching) || model.renaming != nil)
-        .contextMenu {
-            Button("Rename…") { model.beginRename(input) }
-            if input.label != nil {
-                Button("Reset Name") { model.resetName(input) }
-            }
-        }
+        .renameMenu(for: input, model: model, enabled: allowsRename)
         .onHover { inside in
             if inside {
                 model.hoveredInput = input.code
@@ -242,7 +242,7 @@ private struct RenameField: View {
     }
 }
 
-private struct BrightnessSection: View {
+struct BrightnessSection: View {
     let model: StatusModel
     let available: Bool
 
@@ -268,7 +268,7 @@ private struct BrightnessSection: View {
     }
 }
 
-private struct ProblemView: View {
+struct ProblemView: View {
     let problem: Problem
     let retrying: Bool
     let retry: () -> Void
@@ -289,7 +289,7 @@ private struct ProblemView: View {
     }
 }
 
-private struct SectionTitle: View {
+struct SectionTitle: View {
     let title: String
 
     init(_ title: String) {
@@ -301,9 +301,26 @@ private struct SectionTitle: View {
     }
 }
 
-private struct NotAvailable: View {
+struct NotAvailable: View {
     var body: some View {
         Text("Not available").foregroundStyle(.secondary)
+    }
+}
+
+extension View {
+    /// Right-click Rename… / Reset Name, only where renaming is allowed.
+    @ViewBuilder
+    fileprivate func renameMenu(for input: InputEntry, model: StatusModel, enabled: Bool) -> some View {
+        if enabled {
+            contextMenu {
+                Button("Rename…") { model.beginRename(input) }
+                if input.label != nil {
+                    Button("Reset Name") { model.resetName(input) }
+                }
+            }
+        } else {
+            self
+        }
     }
 }
 
