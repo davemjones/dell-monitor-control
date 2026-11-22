@@ -184,6 +184,19 @@ final class StatusModel {
         loginItem = LoginItem.state
     }
 
+    /// Runs monitorctl after every earlier run (for Shortcuts actions), then
+    /// re-reads the monitor if it changed something.
+    func runQueued(_ args: [String]) async -> RunResult {
+        let result = await withCheckedContinuation { continuation in
+            serial { [self] in
+                continuation.resume(returning: await monitorctl.run(args))
+            }
+        }
+        let changes = args.first == "brightness" && args.count > 2 || args.starts(with: ["input", "set"])
+        if changes { refresh() }
+        return result
+    }
+
     /// Runs `job` after every earlier one, so only one monitorctl talks to the
     /// monitor at a time.
     private func serial(_ job: @escaping @MainActor () async -> Void) {

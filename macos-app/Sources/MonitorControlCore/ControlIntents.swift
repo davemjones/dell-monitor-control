@@ -5,17 +5,28 @@ import AppIntents
 /// in the app (`.main`), which isn't sandboxed and can run monitorctl.
 public struct MonitorControlIntents: AppIntentsPackage {}
 
-/// What the app does when a control is clicked; installed by the app at launch.
+/// What the app does when a control or Shortcuts action runs; installed by
+/// the app at launch.
 @MainActor
 public protocol ControlActionHandler: AnyObject {
     func showBrightnessPanel()
     func showInputPanel()
     func showSettings()
+    /// Runs monitorctl in the app's queue, so it never overlaps another run.
+    func runMonitorctl(_ args: [String]) async -> RunResult
 }
 
 @MainActor
 public enum ControlActions {
     public static weak var handler: (any ControlActionHandler)?
+
+    /// Runs monitorctl for a Shortcuts action, through the app when it's there.
+    public static func run(_ args: [String]) async -> RunResult {
+        if let handler {
+            return await handler.runMonitorctl(args)
+        }
+        return await Monitorctl.bundled().run(args)
+    }
 }
 
 public struct ShowBrightnessPanelIntent: AppIntent {

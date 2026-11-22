@@ -161,3 +161,27 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
     #expect(panelOrigin(size: CGSize(width: 2000, height: 2000), visibleFrame: visible)
         == CGPoint(x: 0, y: 0))
 }
+
+@Test func shortcutsListInputsByTheirNames() throws {
+    let json = """
+        [{"name":"dp","code":"0x0f","label":null,"active":false},
+         {"name":"hdmi","code":"0x11","label":"Gaming PC","active":true}]
+        """
+    let entities = try parseInputList(finished(0, stdout: json)).map(MonitorInputEntity.init)
+    #expect(entities.map(\.id) == ["0x0f", "0x11"])
+    #expect(entities.map(\.name) == ["DisplayPort", "Gaming PC"])
+    #expect(entities.map(\.builtInName) == ["DisplayPort", "HDMI"])
+}
+
+@Test func shortcutsReportMonitorctlErrors() {
+    let err = #"{"error":{"kind":"no_monitor","message":"no DDC/CI-capable monitors found"}}"#
+    #expect(throws: MonitorctlFailure.self) { try parseInputList(finished(1, stderr: err)) }
+    do {
+        _ = try parseInputList(finished(1, stderr: err))
+    } catch let failure as MonitorctlFailure {
+        #expect(failure.message == "No DDC/CI-capable monitors found")
+    } catch {
+        Issue.record("unexpected \(error)")
+    }
+    #expect(throws: MonitorctlFailure.self) { try parseInputList(finished(0, stdout: "nope")) }
+}

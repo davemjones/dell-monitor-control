@@ -74,6 +74,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ControlActionHandler {
         settings.show()
     }
 
+    func runMonitorctl(_ args: [String]) async -> RunResult {
+        gate.noteAction()
+        return await model.runQueued(args)
+    }
+
     /// Whether macOS started the app as a login item, read from its launch event.
     private func launchedAsLoginItem() -> Bool {
         guard let event = NSAppleEventManager.shared().currentAppleEvent,
