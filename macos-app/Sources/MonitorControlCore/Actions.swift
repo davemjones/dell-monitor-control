@@ -22,6 +22,13 @@ public func failureMessage(of result: RunResult) -> String? {
     }
 }
 
+/// The input as renamed by `monitorctl input name … --json`.
+public func parseRename(_ result: RunResult) -> InputRef? {
+    struct Renamed: Decodable { let input: InputRef }
+    guard case .finished(exitCode: 0, let stdout, _) = result else { return nil }
+    return (try? JSONDecoder().decode(Renamed.self, from: stdout))?.input
+}
+
 /// The level from `monitorctl brightness --json`.
 public func parseBrightness(_ result: RunResult) -> Int? {
     struct Reading: Decodable { let brightness: Int }

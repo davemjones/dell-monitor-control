@@ -134,8 +134,12 @@ private struct InputSection: View {
         VStack(alignment: .leading, spacing: 2) {
             SectionTitle("Input").padding(.bottom, 4)
             if let inputs {
-                ForEach(inputs, id: \.name) { input in
-                    row(input)
+                ForEach(inputs, id: \.code) { input in
+                    if model.renaming == input.code {
+                        RenameField(model: model, input: input)
+                    } else {
+                        row(input)
+                    }
                 }
             } else {
                 NotAvailable()
@@ -154,7 +158,8 @@ extension InputSection {
                 Image(systemName: "checkmark")
                     .font(.caption.weight(.semibold))
                     .opacity(input.active ? 1 : 0)
-                Text(input.label)
+                Text(input.displayName)
+                    .lineLimit(1)
                 Spacer()
                 if switching {
                     ProgressView().controlSize(.mini)
@@ -169,7 +174,13 @@ extension InputSection {
             )
         }
         .buttonStyle(.plain)
-        .disabled(model.switchingTo != nil && !switching)
+        .disabled((model.switchingTo != nil && !switching) || model.renaming != nil)
+        .contextMenu {
+            Button("Rename…") { model.beginRename(input) }
+            if input.label != nil {
+                Button("Reset Name") { model.resetName(input) }
+            }
+        }
         .onHover { inside in
             if inside {
                 model.hoveredInput = input.code
@@ -180,7 +191,41 @@ extension InputSection {
     }
 
     private func highlighted(_ input: InputEntry) -> Bool {
-        !input.active && model.switchingTo == nil && model.hoveredInput == input.code
+        !input.active && model.switchingTo == nil && model.renaming == nil
+            && model.hoveredInput == input.code
+    }
+}
+
+/// An input row being renamed: Return or clicking away saves, Esc cancels.
+private struct RenameField: View {
+    let model: StatusModel
+    let input: InputEntry
+    @State private var text: String
+    @FocusState private var focused: Bool
+
+    init(model: StatusModel, input: InputEntry) {
+        self.model = model
+        self.input = input
+        _text = State(initialValue: input.label ?? "")
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark")
+                .font(.caption.weight(.semibold))
+                .opacity(input.active ? 1 : 0)
+            TextField(input.builtInLabel, text: $text)
+                .textFieldStyle(.roundedBorder)
+                .focused($focused)
+                .onSubmit { model.commitRename(input, to: text) }
+                .onExitCommand { model.cancelRename() }
+        }
+        .padding(.vertical, 1)
+        .padding(.horizontal, 6)
+        .task { focused = true }
+        .onChange(of: focused) { _, isFocused in
+            if !isFocused { model.commitRename(input, to: text) }
+        }
     }
 }
 

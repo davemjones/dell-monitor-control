@@ -2,17 +2,32 @@
 
 use serde::Serialize;
 
+use crate::names::{self, Labels};
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct InputRef {
     pub name: String,
     pub code: String,
+    /// The user's own name for this input, from the names file.
+    pub label: Option<String>,
 }
 
 impl InputRef {
-    pub fn new(code: u8) -> Self {
+    /// The input with `code`, carrying its custom name from `labels` if it has one.
+    pub fn new(code: u8, labels: &Labels) -> Self {
+        let key = names::code_key(code);
         InputRef {
             name: crate::vcp::input_name(code),
-            code: format!("{code:#04x}"),
+            label: labels.get(&key).cloned(),
+            code: key,
+        }
+    }
+
+    /// `hdmi`, or `hdmi (Gaming PC)` when it has a custom name.
+    pub fn described(&self) -> String {
+        match &self.label {
+            Some(label) => format!("{} ({label})", self.name),
+            None => self.name.clone(),
         }
     }
 }
@@ -69,7 +84,7 @@ pub fn status_text(statuses: &[Status]) -> String {
                 "{} (monitor {})\n  Input:      {}\n  Brightness: {}\n  Volume:     {}\n  Speakers:   {}",
                 s.name,
                 s.monitor,
-                or_na(s.input.as_ref().map(|i| &i.name)),
+                or_na(s.input.as_ref().map(InputRef::described)),
                 or_na(s.brightness),
                 or_na(s.volume),
                 or_na(s.speakers),
@@ -136,12 +151,16 @@ pub fn inputs_text(entries: &[InputEntry]) -> String {
     entries
         .iter()
         .map(|e| {
-            format!(
+            let line = format!(
                 "{} {:width$}  [{}]",
                 if e.active { '*' } else { ' ' },
                 e.input.name,
                 e.input.code
-            )
+            );
+            match &e.input.label {
+                Some(label) => format!("{line}  {label}"),
+                None => line,
+            }
         })
         .collect::<Vec<_>>()
         .join("\n")

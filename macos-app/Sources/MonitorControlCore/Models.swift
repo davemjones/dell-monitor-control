@@ -5,16 +5,21 @@ import Foundation
 public struct InputRef: Decodable, Equatable, Sendable {
     public let name: String
     public let code: String
+    /// The user's own name for the input; nil if it has none.
+    public let label: String?
 }
 
 public struct InputEntry: Decodable, Equatable, Sendable {
     public let name: String
     public let code: String
+    /// The user's own name for the input; nil if it has none.
+    public let label: String?
     public let active: Bool
 
-    public init(name: String, code: String, active: Bool) {
+    public init(name: String, code: String, label: String? = nil, active: Bool) {
         self.name = name
         self.code = code
+        self.label = label
         self.active = active
     }
 }
@@ -30,10 +35,24 @@ public struct MonitorStatus: Decodable, Equatable, Sendable {
     public func switched(to code: String) -> MonitorStatus {
         var status = self
         status.inputs = inputs?.map {
-            InputEntry(name: $0.name, code: $0.code, active: $0.code == code)
+            InputEntry(name: $0.name, code: $0.code, label: $0.label, active: $0.code == code)
         }
         if let target = inputs?.first(where: { $0.code == code }) {
-            status.input = InputRef(name: target.name, code: target.code)
+            status.input = InputRef(name: target.name, code: target.code, label: target.label)
+        }
+        return status
+    }
+
+    /// This status after the input with `code` was given `label` (nil clears it).
+    public func renamed(code: String, to label: String?) -> MonitorStatus {
+        var status = self
+        status.inputs = inputs?.map {
+            $0.code == code
+                ? InputEntry(name: $0.name, code: $0.code, label: label, active: $0.active)
+                : $0
+        }
+        if let input, input.code == code {
+            status.input = InputRef(name: input.name, code: input.code, label: label)
         }
         return status
     }

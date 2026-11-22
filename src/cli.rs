@@ -12,6 +12,7 @@ use clap::{Parser, Subcommand, ValueEnum};
   monitorctl                       Show input, brightness, volume, and speakers
   monitorctl list                  List connected monitors
   monitorctl input set hdmi        Switch to HDMI
+  monitorctl input name dp Work    Name the DisplayPort input \"Work\"
   monitorctl brightness +10        Raise brightness by 10
   monitorctl volume 30             Set speaker volume to 30
   monitorctl speaker toggle        Mute or unmute the speakers
@@ -70,10 +71,20 @@ pub enum Command {
 pub enum InputAction {
     /// List the inputs this monitor supports; the active one is marked with *
     List,
-    /// Switch to an input by name (hdmi, dp, thunderbolt, usb-c, …) or raw code (e.g. 0x11)
+    /// Switch to an input by name (hdmi, dp, thunderbolt, usb-c, …), your name for it, or raw code (e.g. 0x11)
     Set {
-        /// Input name or alias (hdmi, dp, displayport, thunderbolt, usb-c, tb) or raw code (e.g. 0x11)
+        /// Input name or alias (hdmi, dp, displayport, thunderbolt, usb-c, tb), your name for it, or raw code (e.g. 0x11)
         input: String,
+    },
+    /// Show, set, or clear your own name for an input (e.g. "Work Mac")
+    Name {
+        /// The input to name: anything `input set` accepts
+        input: String,
+        /// The new name (omit to show the current one)
+        name: Option<String>,
+        /// Remove the input's name
+        #[arg(long, conflicts_with = "name")]
+        clear: bool,
     },
 }
 
@@ -141,6 +152,22 @@ mod tests {
     fn bare_command_means_status() {
         let cli = Cli::try_parse_from(["monitorctl"]).unwrap();
         assert!(cli.command.is_none());
+    }
+
+    #[test]
+    fn input_name_takes_a_name_or_clear() {
+        let cli =
+            Cli::try_parse_from(["monitorctl", "input", "name", "hdmi", "Gaming PC"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Input {
+                action: Some(InputAction::Name { name: Some(ref n), clear: false, .. })
+            }) if n == "Gaming PC"
+        ));
+        assert!(Cli::try_parse_from(["monitorctl", "input", "name", "hdmi", "--clear"]).is_ok());
+        assert!(
+            Cli::try_parse_from(["monitorctl", "input", "name", "hdmi", "X", "--clear"]).is_err()
+        );
     }
 
     #[test]

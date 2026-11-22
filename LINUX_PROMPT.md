@@ -92,6 +92,7 @@ Work through this with the U3425WE connected. Note what Linux actually reports f
 6. `monitorctl volume` and `volume 30`.
 7. `monitorctl speaker`: it must say mute isn't supported and suggest `monitorctl volume 0`.
 8. `monitorctl input set <other input>`: the monitor switches. Then check whether `monitorctl input set <this PC's input>` can switch back while another source is showing; DDC/CI may be lost after switching away on some setups. Record the result for the README's Known limitations section (macOS over Thunderbolt *can* switch back).
+   - `monitorctl input name <input> Test` should write `~/.config/monitorctl/names.json` (or under `$XDG_CONFIG_HOME`); `input list` then shows the name, and `input name <input> --clear` removes it.
 9. Error paths:
    - Unload the module (`sudo modprobe -r i2c-dev`): you should get the "i2c-dev kernel module probably isn't loaded" message.
    - Run as a user without access: you should get the "no permission to open /dev/i2c-N" message.
@@ -107,12 +108,13 @@ Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show u
 
 - `status --json`: one object for a single monitor, or an array when several are connected and none was chosen.
   ```json
-  {"monitor":1,"name":"DELL U3425WE","input":{"name":"thunderbolt","code":"0x19"},
-   "inputs":[{"name":"dp","code":"0x0f","active":false}, …],
+  {"monitor":1,"name":"DELL U3425WE","input":{"name":"thunderbolt","code":"0x19","label":null},
+   "inputs":[{"name":"dp","code":"0x0f","label":null,"active":false}, …],
    "brightness":78,"volume":88,"speakers":null}
   ```
   `inputs` is read only under `--json` (the text output skips it for speed). It's `null` when the monitor doesn't report its inputs.
-- `list` and `input list` always return arrays. `input set` returns `{"before","after","changed"}`. `brightness <n>` returns `{"brightness":{"before","after"}}`.
+- Every input object carries `label`: the user's name for it from `names.json`, or `null`.
+- `list` and `input list` always return arrays. `input set` returns `{"before","after","changed"}`. `input name` returns `{"input"}`, plus `"label":{"before","after"}` when it changes a name. `brightness <n>` returns `{"brightness":{"before","after"}}`.
 - Errors under `--json` go to stderr as `{"error":{"kind":"no_monitor|multiple_monitors|unsupported|failed","message":…}}`, with exit code 1. To give a new error a kind, raise it as `Failure::new(FailureKind::…, msg)` (see `src/failure.rs`).
 
 ## How to make changes
