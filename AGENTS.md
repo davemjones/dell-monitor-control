@@ -39,6 +39,7 @@ Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference
 | `macos-app/build.sh` | Builds `target/Monitor Control.app` with `monitorctl` at `Contents/Helpers/monitorctl`, ad-hoc signed |
 | `.cargo/config.toml` | Windows-only static CRT link flag. Keep it |
 | `.github/workflows-disabled/` | CI and release workflows, **parked**. Do not move them to `.github/workflows/` unless asked |
+| `specs/` | Feature specs. A **separate, private git repository** (`davemjones/dell-monitor-control-specs`), ignored by this project. See [Features across both repositories](#features-across-both-repositories) |
 
 ## Build and test
 
@@ -100,6 +101,24 @@ The app's decoding lives in `macos-app/Sources/MonitorControlCore/Models.swift` 
 - Problem states come from the error `kind`. A monitor that's found with every value `null` means DDC/CI is off or blocked (`Problem.unreachable`). An array from `status` means multiple monitors (not supported in the app yet).
 - The panel window is resized downward from the menu bar when its content height changes; keep content pinned to the top.
 - No volume controls in the app yet.
+
+## Features across both repositories
+
+Feature work spans two repositories: this one (code, public) and `specs/` (specs, private, its own `.git`, listed in this project's `.gitignore`). It is deliberately **not** a git submodule, because a private submodule would break clones of the public project. Keep the two in step by convention:
+
+1. **Same branch name in both.** Start every feature on a matching branch, e.g. `feature/volume-slider`, created from an up-to-date `main` in each:
+   ```sh
+   git switch main && git pull && git switch -c feature/<name>
+   git -C specs switch main && git -C specs pull && git -C specs switch -c feature/<name>
+   ```
+   Before working, check that both repositories are on the same branch (`git branch --show-current; git -C specs branch --show-current`). If they differ, stop and ask.
+2. **Spec first.** Write or update the spec in `specs/` before changing code, and keep it accurate as the implementation changes. The spec PR merges before, or together with, the code PR, never after.
+3. **Check and commit each repository separately.** `git status` here does not show changes inside `specs/`. Always check both (`git status && git -C specs status`), and commit spec changes in `specs/` and code changes here, each with its own message. The commit rules in [Conventions](#conventions) apply to both.
+4. **Link the pull requests.** In the code PR, add `Spec: davemjones/dell-monitor-control-specs#<n>`; in the spec PR, link the code PR. Don't paste private spec content into the public code PR beyond a short summary.
+5. **Record the spec version on merge.** Put the spec commit the code was built against in the code PR description or merge commit, e.g. `Spec: dell-monitor-control-specs@<short-sha>`.
+6. **Finish together.** After both PRs merge, switch both repositories back to `main`, pull, and delete the feature branch in each (locally and on GitHub).
+
+Git worktrees of this project don't include `specs/` (it's ignored). If you work in a worktree, create a matching worktree of the specs repository at `<worktree>/specs` on the same branch.
 
 ## Conventions
 
