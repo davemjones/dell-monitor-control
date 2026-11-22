@@ -2,6 +2,7 @@ mod backend;
 mod cli;
 mod commands;
 mod failure;
+mod names;
 mod output;
 mod select;
 mod vcp;
@@ -19,7 +20,7 @@ fn main() -> ExitCode {
         with_serials: matches!(cli.command, Some(Command::List { .. })),
     };
 
-    match commands::run(&cli, &backend) {
+    match commands::run(&cli, &backend, &names::FileStore::from_env()) {
         Ok(out) => {
             println!("{out}");
             ExitCode::SUCCESS

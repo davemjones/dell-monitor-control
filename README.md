@@ -19,7 +19,7 @@ $ monitorctl brightness +10
 Brightness: 78 → 88
 ```
 
-`monitorctl` talks to the monitor over **DDC/CI**, a standard control channel that runs over the video cable (HDMI, DisplayPort, or USB-C/Thunderbolt). There's no daemon, no config file, and no account. Each command reads the monitor live, does one thing, and exits.
+`monitorctl` talks to the monitor over **DDC/CI**, a standard control channel that runs over the video cable (HDMI, DisplayPort, or USB-C/Thunderbolt). There's no daemon and no account, and the only file it keeps is an optional list of [your names for inputs](#naming-inputs). Each command reads the monitor live, does one thing, and exits.
 
 **Tested model:** Dell U3425WE (34" curved ultrawide). Since DDC/CI is a standard, other monitors that expose the same controls should work too, but they aren't promised.
 
@@ -100,6 +100,7 @@ monitorctl [--monitor <N|MODEL>] [--json] [COMMAND]
 | `monitorctl input` | Show the active input |
 | `monitorctl input list` | List the monitor's inputs; the active one is marked `*` |
 | `monitorctl input set <name \| code>` | Switch input |
+| `monitorctl input name <input> [name \| --clear]` | Show, set, or remove your own name for an input |
 | `monitorctl brightness [value \| +n \| -n]` | Show, set, or nudge brightness (0–100) |
 | `monitorctl volume [value \| +n \| -n]` | Show, set, or nudge speaker volume (0–100) |
 | `monitorctl speaker [on \| off \| toggle]` | Show or change whether the speakers are muted |
@@ -166,7 +167,56 @@ Input names are case-insensitive, and these aliases work:
 | DisplayPort | `dp`, `displayport`, `dp1` |
 | HDMI | `hdmi`, `hdmi1` |
 
-You can also use a raw code, such as `monitorctl input set 0x11`. A name or code the monitor doesn't have prints the list of valid inputs.
+You can also use a raw code, such as `monitorctl input set 0x11`, or [your own name](#naming-inputs) for the input. A name or code the monitor doesn't have prints the list of valid inputs.
+
+### Naming inputs
+
+Give an input a name that says what's plugged into it. `input name` accepts anything `input set` does, including the input's current name:
+
+```console
+$ monitorctl input name hdmi "Gaming PC"
+Named hdmi "Gaming PC"
+
+$ monitorctl input name thunderbolt "Work Mac"
+Named thunderbolt "Work Mac"
+
+$ monitorctl input list
+  dp           [0x0f]
+  hdmi         [0x11]  Gaming PC
+* thunderbolt  [0x19]  Work Mac
+
+$ monitorctl input set "gaming pc"
+Switched to hdmi (Gaming PC)
+
+$ monitorctl input name hdmi
+hdmi: Gaming PC
+
+$ monitorctl input name hdmi --clear
+Cleared the name for hdmi
+```
+
+Names show up in `status` (`Input:      thunderbolt (Work Mac)`), `input`, `input list`, and in the [menu bar app](#menu-bar-app-macos), where you can also rename an input. They're case-insensitive when you switch, up to 20 characters, and can't be something `input set` already understands (like `hdmi`, `tb`, or `17`) or another input's name.
+
+Names belong to the monitor model, and are kept in a small JSON file:
+
+| OS | File |
+|---|---|
+| macOS | `~/Library/Application Support/monitorctl/names.json` |
+| Linux | `$XDG_CONFIG_HOME/monitorctl/names.json` (usually `~/.config/monitorctl/names.json`) |
+| Windows | `%APPDATA%\monitorctl\names.json` |
+
+Set `MONITORCTL_NAMES_FILE` to use a different file. You can edit the file by hand:
+
+```json
+{
+  "version": 1,
+  "monitors": {
+    "DELL U3425WE": {
+      "inputs": { "0x11": "Gaming PC", "0x19": "Work Mac" }
+    }
+  }
+}
+```
 
 ### Brightness and volume
 
@@ -208,12 +258,13 @@ $ monitorctl status --json
   "name": "DELL U3425WE",
   "input": {
     "name": "thunderbolt",
-    "code": "0x19"
+    "code": "0x19",
+    "label": "Work Mac"
   },
   "inputs": [
-    { "name": "dp", "code": "0x0f", "active": false },
-    { "name": "hdmi", "code": "0x11", "active": false },
-    { "name": "thunderbolt", "code": "0x19", "active": true }
+    { "name": "dp", "code": "0x0f", "label": null, "active": false },
+    { "name": "hdmi", "code": "0x11", "label": "Gaming PC", "active": false },
+    { "name": "thunderbolt", "code": "0x19", "label": "Work Mac", "active": true }
   ],
   "brightness": 78,
   "volume": 88,
@@ -233,7 +284,9 @@ The output shapes:
 
 - `status --json` returns an object for one monitor and an array when it shows several. It also lists the supported inputs under `"inputs"` (`null` if the monitor doesn't report them), which the text output skips because reading them takes about a second.
 - `list` and `input list` always return arrays.
+- Every input object has a `"label"`: your name for it, or `null`.
 - `input set` returns `{"before": …, "after": …, "changed": true|false}`.
+- `input name` returns `{"input": …}`, plus `"label": {"before": …, "after": …}` when it sets or clears a name.
 - `speaker` changes return `{"speakers": {"before": …, "after": …}}`.
 - `volume` changes also include `"speakers"`, so scripts can tell whether the speakers are muted.
 - Errors go to stderr as `{"error": {"kind": …, "message": …}}`, with a non-zero exit code. `kind` is one of `no_monitor`, `multiple_monitors`, `unsupported`, or `failed`.
@@ -266,6 +319,7 @@ The app isn't signed by a registered developer. An app you build yourself opens 
 
 - **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
 - **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
+- **Naming inputs:** right-click (or Control-click) an input and choose **Rename…**, type a name, and press Return; Esc cancels. **Reset Name** goes back to the built-in one. The names are the same ones `monitorctl input name` sets.
 - **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
 - Readings are taken when the app starts and again each time the panel opens. The panel shows the last readings straight away and updates them in place, so changes made with the monitor's buttons appear a moment after you open it.
 
@@ -296,6 +350,7 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 - **Docks, adapters, and KVM switches** can block DDC/CI. If `monitorctl` can't find or talk to the monitor, try a direct cable.
 - **Switching away from the computer running `monitorctl`:** on the tested setup (MacBook Pro M1 Pro → U3425WE over Thunderbolt, no dock), the Mac can still reach the monitor while another input is showing, so `monitorctl input set thunderbolt` switches back. Other setups may lose DDC/CI after switching away. If so, switch back with the monitor's buttons.
 - **The U3425WE doesn't support speaker mute over DDC/CI.** Use `monitorctl volume 0` instead.
+- **Input names belong to a monitor model**, so two identical monitors share the same names.
 - **The U3425WE keeps a separate brightness for each input.** `monitorctl brightness` reads and sets the brightness of the input that's currently showing.
 - **Windows and Linux** builds are tested automatically, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
 - **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs, Windows on ARM, and Linux on ARM aren't supported.
@@ -312,6 +367,7 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 | `couldn't read … from <monitor>` / `couldn't change …` | The monitor didn't answer, even after automatic retries. Check DDC/CI is on and try a direct cable. |
 | `several monitors are connected; choose one with --monitor` | Add `--monitor <number or model>`; see `monitorctl list`. |
 | `doesn't support speaker mute over DDC/CI` | Use `monitorctl volume 0`. |
+| `… isn't a valid names file` | Fix the JSON in the [names file](#naming-inputs), or delete it to start over. Status and switching by built-in name keep working meanwhile. |
 
 ## License
 

@@ -6,7 +6,7 @@ Read this before changing anything in this repository, then read `README.md` (th
 
 Two products in one repo:
 
-1. **`monitorctl`** (Rust, repo root): a cross-platform CLI that controls a monitor over **DDC/CI**. It lists monitors, reads and switches inputs, and reads and sets brightness, volume, and speaker mute. Every command accepts `--json`. No daemon, no config file: each run reads the monitor live, does one thing, and exits.
+1. **`monitorctl`** (Rust, repo root): a cross-platform CLI that controls a monitor over **DDC/CI**. It lists monitors, reads and switches inputs, and reads and sets brightness, volume, and speaker mute. Every command accepts `--json`. No daemon; the only file it keeps is the user's input names (`names.json`, see `src/names.rs`). Each run reads the monitor live, does one thing, and exits.
 2. **Monitor Control** (Swift/SwiftUI, `macos-app/`): a macOS menu bar app. It is a **front end only**. It runs a bundled copy of `monitorctl` and reads its JSON. It never talks DDC/CI itself.
 
 Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference distro).
@@ -21,9 +21,10 @@ Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference
 |---|---|
 | `src/main.rs` | Entry point. Prints output; errors go to stderr as `error: …`, or as JSON under `--json`. Exit 1 on failure (clap uses 2 for bad arguments) |
 | `src/cli.rs` | clap definitions (`Cli`, `Command`, `InputAction`, `Level`, `SpeakerState`) |
-| `src/commands.rs` | All command logic, written against the `Backend`/`Monitor` traits. Platform-neutral. Most tests live here |
+| `src/commands.rs` | All command logic, written against the `Backend`/`Monitor` and `NameStore` traits. Platform-neutral. Most tests live here |
 | `src/output.rs` | Output structs (`Status`, `InputEntry`, `ListEntry`, …) and text/JSON rendering |
 | `src/select.rs` | Monitor selection (`--monitor N\|MODEL`, auto-pick when only one is connected) and the shared `DDC_HINT` text |
+| `src/names.rs` | Custom input names: the `names.json` file (`FileStore`, path from `$MONITORCTL_NAMES_FILE` or the OS config dir), name validation, and `MemoryStore` for tests |
 | `src/failure.rs` | `Failure { kind, message }`. Kinds: `no_monitor`, `multiple_monitors`, `unsupported`, `failed` |
 | `src/vcp.rs` | VCP codes (0x10 brightness, 0x60 input, 0x62 volume, 0x8D mute), input names and aliases, percent scaling |
 | `src/backend/mod.rs` | `Backend` / `Monitor` traits, `Caps` parsing (via `mccs-caps`) |
@@ -78,13 +79,14 @@ The menu bar app (and any future tray app) depends on these shapes. Keep them st
 
 - `status --json`: one object for a single monitor; an array when several are shown.
   ```json
-  {"monitor":1,"name":"DELL U3425WE","input":{"name":"thunderbolt","code":"0x19"},
-   "inputs":[{"name":"dp","code":"0x0f","active":false}, …],
+  {"monitor":1,"name":"DELL U3425WE","input":{"name":"thunderbolt","code":"0x19","label":"Work Mac"},
+   "inputs":[{"name":"dp","code":"0x0f","label":null,"active":false}, …],
    "brightness":78,"volume":88,"speakers":null}
   ```
-  Unreadable values are `null`. `inputs` is `null` if the monitor doesn't report its inputs.
+  Unreadable values are `null`. `inputs` is `null` if the monitor doesn't report its inputs. Every input object carries `label`, the user's name for it or `null`.
 - `list` and `input list` always return arrays.
 - `input set` returns `{"before","after","changed"}`.
+- `input name` returns `{"input"}` when showing, and `{"input","label":{"before","after"}}` when setting or clearing.
 - Plain reads return a single key: `brightness --json` → `{"brightness":78}` (the app's slider snap-back parses this), likewise `volume` and `speakers`.
 - `brightness <n>` / `volume <n>` return `{"brightness":{"before","after"}}` / `{"volume":{…}}`; volume changes also include `"speakers"`.
 - `speaker` changes return `{"speakers":{"before","after"}}`.
@@ -97,6 +99,7 @@ The app's decoding lives in `macos-app/Sources/MonitorControlCore/Models.swift` 
 - Reads `status --json` at launch, then again in the background each time the panel opens. The panel shows the last readings immediately and updates in place. The loading state appears only at startup and during Retry (which keeps the problem visible with a spinner).
 - **Only one `monitorctl` runs at a time** (`StatusModel.serial`), so DDC/CI commands never overlap. Each run has a 10s timeout.
 - Switching input runs `input set <code> --json` and closes the panel on success.
+- Right-click an input → Rename… edits the row in place (Return or losing focus saves, Esc cancels); Reset Name clears it. Saving runs `input name <code> <name> --json` (or `--clear`), shows the new name immediately, and restores the old one on failure. The app never writes `names.json` itself.
 - The brightness slider writes `brightness <n> --json` while dragging through `BrightnessWriter`: one write in flight, overtaken values skipped, last value always written. On failure the slider snaps back to `brightness --json`. A refresh that lands during a write keeps the slider's position.
 - Problem states come from the error `kind`. A monitor that's found with every value `null` means DDC/CI is off or blocked (`Problem.unreachable`). An array from `status` means multiple monitors (not supported in the app yet).
 - The panel window is resized downward from the menu bar when its content height changes; keep content pinned to the top.
@@ -134,5 +137,6 @@ Git worktrees of this project don't include `specs/` (it's ignored). If you work
 
 - Docks, adapters, and KVMs can block DDC/CI.
 - After switching input away from this computer, some setups lose DDC/CI. macOS over Thunderbolt to the U3425WE can still switch back.
+- Input names are keyed by monitor model, so identical monitors share them.
 - Only input, brightness, volume, and mute are supported (no contrast, color presets, KVM, or PbP/PiP).
 - Binaries and the app are unsigned/not notarized. No Intel Mac, Windows on ARM, or Linux on ARM support.

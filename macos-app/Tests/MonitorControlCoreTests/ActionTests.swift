@@ -8,11 +8,67 @@ private func finished(_ code: Int32, stdout: String = "", stderr: String = "") -
 }
 
 @Test func labels() {
-    let label = { InputEntry(name: $0, code: "", active: false).label }
+    let label = { InputEntry(name: $0, code: "", active: false).displayName }
     #expect(label("thunderbolt") == "Thunderbolt / USB-C")
     #expect(label("dp") == "DisplayPort")
     #expect(label("hdmi") == "HDMI")
     #expect(label("input-0x1b") == "input-0x1b")
+    let named = InputEntry(name: "hdmi", code: "0x11", label: "Gaming PC", active: false)
+    #expect(named.displayName == "Gaming PC")
+    #expect(named.builtInLabel == "HDMI")
+}
+
+@Test func renameArguments() {
+    let hdmi = InputEntry(name: "hdmi", code: "0x11", active: false)
+    #expect(hdmi.newLabel(from: "  Gaming PC ") == "Gaming PC")
+    #expect(hdmi.newLabel(from: " ") == nil)
+    #expect(hdmi.newLabel(from: "HDMI") == nil)
+    #expect(hdmi.renameArguments("Gaming PC") == ["input", "name", "0x11", "Gaming PC", "--json"])
+    #expect(hdmi.renameArguments(nil) == ["input", "name", "0x11", "--clear", "--json"])
+}
+
+@Test func readsRename() {
+    let json = """
+        {"input":{"name":"hdmi","code":"0x11","label":"Gaming PC"},
+         "label":{"before":null,"after":"Gaming PC"}}
+        """
+    #expect(
+        parseRename(finished(0, stdout: json))
+            == InputRef(name: "hdmi", code: "0x11", label: "Gaming PC"))
+    let cleared = #"{"input":{"name":"hdmi","code":"0x11","label":null},"label":{"before":"X","after":null}}"#
+    #expect(parseRename(finished(0, stdout: cleared))?.label == nil)
+    #expect(parseRename(finished(1, stderr: "nope")) == nil)
+}
+
+@Test func decodesLabelsWhenPresentOrMissing() throws {
+    let json = """
+        {"monitor":1,"name":"DELL U3425WE",
+         "input":{"name":"thunderbolt","code":"0x19","label":"Work Mac"},
+         "inputs":[{"name":"dp","code":"0x0f","active":false},
+                   {"name":"thunderbolt","code":"0x19","label":"Work Mac","active":true}],
+         "brightness":78}
+        """
+    let status = try JSONDecoder().decode(MonitorStatus.self, from: Data(json.utf8))
+    #expect(status.input?.label == "Work Mac")
+    #expect(status.inputs?.map(\.label) == [nil, "Work Mac"])
+}
+
+@Test func renamedStatusUpdatesTheInput() throws {
+    let json = """
+        {"monitor":1,"name":"DELL U3425WE","input":{"name":"thunderbolt","code":"0x19"},
+         "inputs":[{"name":"dp","code":"0x0f","active":false},
+                   {"name":"thunderbolt","code":"0x19","active":true}],
+         "brightness":78}
+        """
+    let status = try JSONDecoder().decode(MonitorStatus.self, from: Data(json.utf8))
+    let named = status.renamed(code: "0x19", to: "Work Mac")
+    #expect(named.inputs?.map(\.label) == [nil, "Work Mac"])
+    #expect(named.inputs?.map(\.active) == [false, true])
+    #expect(named.input?.label == "Work Mac")
+    // Switching keeps names.
+    let switched = named.switched(to: "0x0f")
+    #expect(switched.inputs?.map(\.label) == [nil, "Work Mac"])
+    #expect(named.renamed(code: "0x19", to: nil).input?.label == nil)
 }
 
 @Test func failureMessages() {

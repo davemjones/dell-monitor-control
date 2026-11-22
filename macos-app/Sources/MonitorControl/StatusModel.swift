@@ -16,6 +16,8 @@ final class StatusModel {
     private(set) var actionError: String?
     /// The input row under the pointer.
     var hoveredInput: String?
+    /// The code of the input whose name is being edited in place.
+    private(set) var renaming: String?
     private(set) var loginItem = LoginItem.state
     /// Why the last Launch at login change didn't happen.
     private(set) var loginItemError: String?
@@ -79,6 +81,54 @@ final class StatusModel {
                 state = .ready(status.switched(to: input.code))
             }
             panelWindow?.close()
+        }
+    }
+
+    /// Turns the input's row into a text field for its name.
+    func beginRename(_ input: InputEntry) {
+        guard switchingTo == nil else { return }
+        actionError = nil
+        renaming = input.code
+    }
+
+    func cancelRename() {
+        renaming = nil
+    }
+
+    /// Saves the name typed into the row being edited. Only the first of
+    /// Return and the field losing focus saves.
+    func commitRename(_ input: InputEntry, to text: String) {
+        guard renaming == input.code else { return }
+        renaming = nil
+        rename(input, to: text)
+    }
+
+    /// Goes back to the input's built-in name.
+    func resetName(_ input: InputEntry) {
+        rename(input, to: "")
+    }
+
+    /// Shows the new name straight away, then saves it with monitorctl and
+    /// puts the old one back if that fails.
+    private func rename(_ input: InputEntry, to text: String) {
+        let wanted = input.newLabel(from: text)
+        guard wanted != input.label else { return }
+        actionError = nil
+        relabel(input.code, wanted)
+        serial { [self] in
+            let result = await monitorctl.run(input.renameArguments(wanted))
+            if let message = failureMessage(of: result) {
+                relabel(input.code, input.label)
+                actionError = message
+            } else if let saved = parseRename(result) {
+                relabel(saved.code, saved.label)
+            }
+        }
+    }
+
+    private func relabel(_ code: String, _ label: String?) {
+        if case .ready(let status) = state {
+            state = .ready(status.renamed(code: code, to: label))
         }
     }
 
