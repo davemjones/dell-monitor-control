@@ -2,8 +2,9 @@ import AppKit
 import MonitorControlCore
 import Observation
 
-/// The panel's view of the monitor, read from monitorctl at launch and again in
-/// the background each time the panel opens, and the changes made from it.
+/// The app's view of the monitor, read from monitorctl at launch and again in
+/// the background each time the panel or Settings opens, and the changes made
+/// from either.
 @MainActor
 @Observable
 final class StatusModel {
@@ -23,6 +24,11 @@ final class StatusModel {
     private(set) var loginItemError: String?
     /// A Retry is reading the monitor.
     private(set) var retrying = false
+    /// Why the last name change made in Settings didn't happen, by input code.
+    private(set) var nameErrors: [String: String] = [:]
+
+    /// Opens the Settings window; set by the app delegate.
+    @ObservationIgnored var openSettings: () -> Void = {}
 
     @ObservationIgnored weak var panelWindow: NSWindow?
     @ObservationIgnored private var refreshing = false
@@ -66,7 +72,8 @@ final class StatusModel {
         refresh()
     }
 
-    func switchInput(to input: InputEntry) {
+    /// Switches input, then closes the menu bar panel and calls `then`.
+    func switchInput(to input: InputEntry, then: @escaping () -> Void = {}) {
         guard !input.active, switchingTo == nil, case .ready = state else { return }
         switchingTo = input.code
         actionError = nil
@@ -81,6 +88,7 @@ final class StatusModel {
                 state = .ready(status.switched(to: input.code))
             }
             panelWindow?.close()
+            then()
         }
     }
 
@@ -100,26 +108,33 @@ final class StatusModel {
     func commitRename(_ input: InputEntry, to text: String) {
         guard renaming == input.code else { return }
         renaming = nil
-        rename(input, to: text)
+        actionError = nil
+        rename(input, to: text) { [self] in actionError = $0 }
     }
 
     /// Goes back to the input's built-in name.
     func resetName(_ input: InputEntry) {
-        rename(input, to: "")
+        actionError = nil
+        rename(input, to: "") { [self] in actionError = $0 }
+    }
+
+    /// Saves a name typed in Settings; a failure shows under that input's field.
+    func saveName(_ input: InputEntry, to text: String) {
+        nameErrors[input.code] = nil
+        rename(input, to: text) { [self] in nameErrors[input.code] = $0 }
     }
 
     /// Shows the new name straight away, then saves it with monitorctl and
-    /// puts the old one back if that fails.
-    private func rename(_ input: InputEntry, to text: String) {
+    /// puts the old one back (and reports why) if that fails.
+    private func rename(_ input: InputEntry, to text: String, failed: @escaping (String) -> Void) {
         let wanted = input.newLabel(from: text)
         guard wanted != input.label else { return }
-        actionError = nil
         relabel(input.code, wanted)
         serial { [self] in
             let result = await monitorctl.run(input.renameArguments(wanted))
             if let message = failureMessage(of: result) {
                 relabel(input.code, input.label)
-                actionError = message
+                failed(message)
             } else if let saved = parseRename(result) {
                 relabel(saved.code, saved.label)
             }
@@ -167,6 +182,19 @@ final class StatusModel {
             loginItemError = "Couldn't change Login Items: \(error.localizedDescription)"
         }
         loginItem = LoginItem.state
+    }
+
+    /// Runs monitorctl after every earlier run (for Shortcuts actions), then
+    /// re-reads the monitor if it changed something.
+    func runQueued(_ args: [String]) async -> RunResult {
+        let result = await withCheckedContinuation { continuation in
+            serial { [self] in
+                continuation.resume(returning: await monitorctl.run(args))
+            }
+        }
+        let changes = args.first == "brightness" && args.count > 2 || args.starts(with: ["input", "set"])
+        if changes { refresh() }
+        return result
     }
 
     /// Runs `job` after every earlier one, so only one monitorctl talks to the

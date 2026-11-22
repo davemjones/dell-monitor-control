@@ -7,9 +7,9 @@ Read this before changing anything in this repository, then read `README.md` (th
 Two products in one repo:
 
 1. **`monitorctl`** (Rust, repo root): a cross-platform CLI that controls a monitor over **DDC/CI**. It lists monitors, reads and switches inputs, and reads and sets brightness, volume, and speaker mute. Every command accepts `--json`. No daemon; the only file it keeps is the user's input names (`names.json`, see `src/names.rs`). Each run reads the monitor live, does one thing, and exits.
-2. **Monitor Control** (Swift/SwiftUI, `macos-app/`): a macOS menu bar app. It is a **front end only**. It runs a bundled copy of `monitorctl` and reads its JSON. It never talks DDC/CI itself.
+2. **Monitor Control** (Swift/SwiftUI, `macos-app/`): a macOS 27+ app with Control Center controls (brightness, input, settings), Shortcuts actions, a Settings window, and an optional menu bar panel. It is a **front end only**. It runs a bundled copy of `monitorctl` and reads its JSON. It never talks DDC/CI itself.
 
-Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference distro).
+Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 and ARM64 (Arch is the reference distro; also published to the AUR as `monitorctl`).
 
 **Reference hardware:** Dell U3425WE. Inputs `dp` (0x0f), `hdmi` (0x11), `thunderbolt` (0x19). It does **not** support speaker mute over DDC/CI (reads as `null` / `n/a`), and it keeps a separate brightness per input.
 
@@ -34,12 +34,21 @@ Targets: macOS (Apple Silicon), Windows 11 x64, Linux x64 (Arch is the reference
 | `src/backend/windows_edid.rs` | Windows: reads the registry EDID for real model names and serials. `parse_device_id` is pure and tested on every OS |
 | `src/backend/linux_i2c.rs` | Linux: when no monitors are found, probes `/dev/i2c-*` to explain missing `i2c-dev` or permissions. `diagnose` is pure and tested on every OS |
 | `macos-app/Sources/MonitorControlCore/` | Testable app logic: `Monitorctl.swift` (process runner with timeout), `Models.swift` (JSON shapes), `PanelState.swift` (status → panel state / problems), `Actions.swift` (`BrightnessWriter`, error messages), `InputLabels.swift` |
-| `macos-app/Sources/MonitorControl/` | The app shell: `MonitorControlApp.swift`, `StatusModel.swift` (state + serialized `monitorctl` runs), `PanelView.swift` (SwiftUI panel), `LoginItem.swift` |
+| `macos-app/Sources/MonitorControlCore/LaunchGate.swift` | Decides whether a launch opens Settings (not for login-item launches or control/Shortcuts actions) |
+| `macos-app/Sources/MonitorControlCore/ControlIntents.swift` | The controls' App Intents (`allowedExecutionTargets = .main`), the `ControlActionHandler` protocol the app implements, and `ControlActions.run` (monitorctl through the app's queue) |
+| `macos-app/Sources/MonitorControlCore/ShortcutIntents.swift` | Shortcuts actions *Switch Monitor Input* (`MonitorInputEntity`, listed from `input list --json`) and *Set Monitor Brightness* |
+| `macos-app/Sources/MonitorControlCore/PanelPlacement.swift` | `panelOrigin`: where a control's panel opens (top right of the visible frame) |
+| `macos-app/App/` | The app shell: `MonitorControlApp.swift` (app delegate: optional menu bar icon, launch handling, `ControlActionHandler`), `StatusModel.swift` (state + serialized `monitorctl` runs), `PanelView.swift` (menu bar panel and the shared input/brightness sections), `ControlPanel.swift` (the panels the controls open), `SettingsView.swift` (Settings window), `Shortcuts.swift` (App Shortcuts), `LoginItem.swift`, `Assets.xcassets` |
+| `macos-app/Controls/` | The `ControlsExtension` widget extension (sandboxed): the three Control Center controls, which only name intents from the framework |
+| `macos-app/MonitorControl.xcodeproj/` | Xcode project in the JSON `project.xcproj` format: the app, the `MonitorControlCore` framework (built from `Sources/MonitorControlCore`, embedded in the app, linked by the extension), and `ControlsExtension`. A copy phase bundles `../target/release/monitorctl` at `Contents/Helpers/` and signs it |
+| `macos-app/Config/` | `MonitorControl.xcconfig` (shared), which includes the git-ignored `Signing.local.xcconfig` (Team ID; see the `.example`) and `Version.xcconfig` (written by `build.sh`) |
+| `macos-app/Package.swift` | SwiftPM package for `MonitorControlCore` and its tests only, so `swift test` runs without building the app |
 | `macos-app/Tests/MonitorControlCoreTests/` | Swift Testing tests for the core module |
 | `macos-app/Icon/make-icon.swift` | Draws the app icon (not an SF Symbol: Apple's license forbids those in app icons) |
-| `macos-app/build.sh` | Builds `target/Monitor Control.app` with `monitorctl` at `Contents/Helpers/monitorctl`, ad-hoc signed |
+| `macos-app/build.sh` | Builds `monitorctl`, draws the icon into the asset catalog, and runs `xcodebuild`; leaves a signed `target/Monitor Control.app` |
 | `.cargo/config.toml` | Windows-only static CRT link flag. Keep it |
-| `.github/workflows-disabled/` | CI and release workflows, **parked**. Do not move them to `.github/workflows/` unless asked |
+| `packaging/aur/` | The AUR package `monitorctl` (source package): `PKGBUILD`, `monitorctl.install`, and the `i2c-dev` modules-load and `uaccess` udev files it installs from the source tarball. Published from an Arch machine after each release (`specs/releases/<version>/tasks.md`); its `sha256sums` and `.SRCINFO` are copied back here. Conflicts with the unrelated `monitorctl-bin` |
+| `scripts/release-macos.sh` | Builds a release's macOS assets (CLI archive, app zip, `.sha256` files) from the tagged source; `--draft NOTES.md` also creates the draft GitHub release. See [Releases](#releases) |
 | `specs/` | Feature specs. A **separate, private git repository** (`davemjones/dell-monitor-control-specs`), ignored by this project. See [Features across both repositories](#features-across-both-repositories) |
 
 ## Build and test
@@ -53,16 +62,16 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-macOS app (needs Rust plus Apple Command Line Tools; full Xcode is not required):
+macOS app (needs Rust plus Xcode 27.2+, and `macos-app/Config/Signing.local.xcconfig` with your Team ID):
 
 ```sh
 swift test --package-path macos-app         # core-module tests
 ./macos-app/build.sh                        # → target/Monitor Control.app
 ```
 
-All of the above must pass before committing. A `nom v3.2.1` "future incompatibility" warning comes from a dependency and is expected. `Package.swift` passes the Command Line Tools' Swift Testing plugin path explicitly so `swift test` works without Xcode; don't remove that.
+All of the above must pass before committing. A `nom v3.2.1` "future incompatibility" warning comes from a dependency and is expected. `Package.swift` passes the Command Line Tools' Swift Testing plugin path explicitly so `swift test` also works with only the Command Line Tools selected; don't remove that.
 
-The app version comes from `Cargo.toml`'s `version`, which `build.sh` writes into `Info.plist`. The release workflow requires the git tag to match it. Every new feature bumps it (see [Features across both repositories](#features-across-both-repositories)).
+The app version comes from `Cargo.toml`'s `version`, which `build.sh` writes into `Config/Version.xcconfig` for Xcode. Release tags (`v<version>`) must match it; `scripts/release-macos.sh` checks. Every new feature bumps it (see [Features across both repositories](#features-across-both-repositories)).
 
 ## Architecture rules
 
@@ -94,16 +103,27 @@ The menu bar app (and any future tray app) depends on these shapes. Keep them st
 
 The app's decoding lives in `macos-app/Sources/MonitorControlCore/Models.swift` and `PanelState.swift`.
 
-## Menu bar app behavior (keep when changing it)
+## Mac app behavior (keep when changing it)
 
-- Reads `status --json` at launch, then again in the background each time the panel opens. The panel shows the last readings immediately and updates in place. The loading state appears only at startup and during Retry (which keeps the problem visible with a spinner).
+- An agent app (`LSUIElement`). The menu bar icon is optional and **off by default** (`showMenuBarIcon` in `UserDefaults`, toggled in Settings).
+- **Control Center controls** (Monitor Brightness, Monitor Input, Monitor Control Settings) are buttons: Control Center has no sliders. Their intents run in the app (`.main`, needs macOS 27), which opens a borderless panel at the top right of the screen under the pointer (`ControlPanel`), closed by Esc or clicking away. The input panel switches inputs but never renames. With no monitor, panels disable their control and show only "No monitor detected"; other problems show the `Problem` with Retry.
+- **Shortcuts actions** *Switch Monitor Input* and *Set Monitor Brightness* run in the app through `StatusModel.runQueued`, then refresh. Siri/Spotlight phrases are out of scope.
+- Opening the app shows **Settings**: on launch after `LaunchGate.grace` unless it was started as a login item or to run a control or Shortcuts action, and on every reopen while running. Settings has the input names, Show menu bar icon, Launch at login, a Control Center guide, and Quit. Names save through `input name` like the panel's Rename…, with errors shown under the field.
+- Reads `status --json` at launch, then again in the background each time the panel or Settings opens. The panel shows the last readings immediately and updates in place. The loading state appears only at startup and during Retry (which keeps the problem visible with a spinner).
 - **Only one `monitorctl` runs at a time** (`StatusModel.serial`), so DDC/CI commands never overlap. Each run has a 10s timeout.
-- Switching input runs `input set <code> --json` and closes the panel on success.
+- Switching input runs `input set <code> --json` and closes the panel (menu bar or control) on success.
 - Right-click an input → Rename… edits the row in place (Return or losing focus saves, Esc cancels); Reset Name clears it. Saving runs `input name <code> <name> --json` (or `--clear`), shows the new name immediately, and restores the old one on failure. The app never writes `names.json` itself.
 - The brightness slider writes `brightness <n> --json` while dragging through `BrightnessWriter`: one write in flight, overtaken values skipped, last value always written. On failure the slider snaps back to `brightness --json`. A refresh that lands during a write keeps the slider's position.
 - Problem states come from the error `kind`. A monitor that's found with every value `null` means DDC/CI is off or blocked (`Problem.unreachable`). An array from `status` means multiple monitors (not supported in the app yet).
 - The panel window is resized downward from the menu bar when its content height changes; keep content pinned to the top.
 - No volume controls in the app yet.
+
+## Releases
+
+- **Never use GitHub workflows.** Every build, including release builds, is made locally. There is no CI.
+- Each release has `specs/releases/<version>/tasks.md` (see `specs/releases/README.md`): a checklist written so an agent on another machine can build its platform's assets (Linux x64 and ARM64 in Ubuntu 22.04 containers, Windows x64) and upload them with `gh`, and publish the AUR package from an Arch machine. Keep it after the release and record who built what, when, and the checksums.
+- This Mac tags `v<version>` (matching `Cargo.toml`), runs `scripts/release-macos.sh --draft NOTES.md` to build the macOS assets and create a **draft** release, and the other machines add theirs. Publish only when every asset and its `.sha256` file is attached.
+- The app is signed with the developer's team (Personal Team today) but not notarized, so downloaded copies need Privacy & Security › Open Anyway. Developer ID signing and notarization come with the paid Developer Program.
 
 ## Features across both repositories
 
@@ -132,7 +152,7 @@ Git worktrees of this project don't include `specs/` (it's ignored). If you work
 - **Comments:** brief doc comments that explain *why*; match the density of surrounding code.
 - **Update `README.md`** when behavior, output, setup steps, Known limitations, or Troubleshooting change. Update `LINUX_PROMPT.md` / `WINDOWS_PROMPT.md` when what they describe changes.
 - **Commits:** only when asked. One logical change per commit. Short imperative subject line, with a body explaining why (see `git log`).
-- **Never commit** build output (`target/`, `macos-app/.build/`), signing identities, certificates, or tokens. The app uses ad-hoc signing only.
+- **Never commit** build output (`target/`, `macos-app/.build/`), signing identities, certificates, or tokens. Signing uses the developer's own team via the git-ignored `Signing.local.xcconfig`; never commit a Team ID.
 
 ## Known limitations to keep in mind
 
@@ -140,4 +160,4 @@ Git worktrees of this project don't include `specs/` (it's ignored). If you work
 - After switching input away from this computer, some setups lose DDC/CI. macOS over Thunderbolt to the U3425WE can still switch back.
 - Input names are keyed by monitor model, so identical monitors share them.
 - Only input, brightness, volume, and mute are supported (no contrast, color presets, KVM, or PbP/PiP).
-- Binaries and the app are unsigned/not notarized. No Intel Mac, Windows on ARM, or Linux on ARM support.
+- The CLI binaries are unsigned; the app is signed with the developer's team but not notarized. The app needs macOS 27+ and supports one monitor. No Intel Mac or Windows on ARM support. Linux ARM64 is built but untested on hardware.

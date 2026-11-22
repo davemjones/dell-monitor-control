@@ -1,8 +1,8 @@
 # monitorctl
 
-Control a monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Arch Linux.
+Control a monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Linux (x64 and ARM64; Arch users can install it from the AUR).
 
-On macOS there's also a [menu bar app](#menu-bar-app-macos), **Monitor Control**, for switching inputs and adjusting brightness without a terminal.
+On macOS there's also an app, [**Monitor Control**](#monitor-control-app-macos), that puts brightness and input switching in Control Center, with Shortcuts actions too.
 
 ```console
 $ monitorctl
@@ -31,19 +31,23 @@ Download the archive for your platform from the [latest release](https://github.
 |---|---|
 | macOS (Apple Silicon) | `monitorctl-vX.Y.Z-macos-arm64.tar.gz` |
 | Windows 11 (x64) | `monitorctl-vX.Y.Z-windows-x64.zip` |
-| Linux (x64), e.g. Arch | `monitorctl-vX.Y.Z-linux-x64.tar.gz` |
+| Linux (x64) | `monitorctl-vX.Y.Z-linux-x64.tar.gz` |
+| Linux (ARM64) | `monitorctl-vX.Y.Z-linux-arm64.tar.gz` |
+| Arch Linux (x64 or ARM64) | the [`monitorctl` AUR package](https://aur.archlinux.org/packages/monitorctl), see [below](#arch-linux-setup) |
 
-Each archive contains a single standalone `monitorctl` binary (`monitorctl.exe` on Windows). Put it somewhere on your `PATH`.
+The Linux binaries need glibc 2.35 or later (Ubuntu 22.04, Debian 12, Fedora 36, Arch, and newer). Each archive contains a folder with a single standalone `monitorctl` binary (`monitorctl.exe` on Windows), the README, and the licenses. Put the binary somewhere on your `PATH`. For the macOS app, see [Monitor Control app](#monitor-control-app-macos).
 
-To check a download, compare it against `SHA256SUMS` from the same release:
+Every download has a matching `.sha256` file. To check a download, put both in the same folder and run:
 
 ```sh
-shasum -a 256 -c SHA256SUMS --ignore-missing      # macOS
-sha256sum -c SHA256SUMS --ignore-missing          # Linux
+shasum -a 256 -c monitorctl-vX.Y.Z-macos-arm64.tar.gz.sha256      # macOS
+sha256sum -c monitorctl-vX.Y.Z-linux-x64.tar.gz.sha256            # Linux
 ```
 
 ```powershell
-Get-FileHash .\monitorctl-vX.Y.Z-windows-x64.zip     # Windows: compare with SHA256SUMS
+# Windows: the two hashes must match
+(Get-FileHash .\monitorctl-vX.Y.Z-windows-x64.zip).Hash.ToLower()
+Get-Content .\monitorctl-vX.Y.Z-windows-x64.zip.sha256
 ```
 
 ### macOS: "unidentified developer" warning
@@ -57,6 +61,18 @@ xattr -d com.apple.quarantine ./monitorctl
 You can also allow it under **System Settings → Privacy & Security** after the first blocked attempt.
 
 ### Arch Linux setup
+
+On Arch, install the [`monitorctl`](https://aur.archlinux.org/packages/monitorctl) package from the AUR, with an AUR helper (`yay -S monitorctl`) or by hand:
+
+```sh
+git clone https://aur.archlinux.org/monitorctl.git
+cd monitorctl
+makepkg -si
+```
+
+It builds `monitorctl` from source and sets up I²C access for you: it loads the `i2c-dev` module at every boot and gives the logged-in user access to `/dev/i2c-*`. Run `sudo modprobe i2c-dev` once (or reboot) and `monitorctl` is ready. It can't be installed alongside the unrelated `monitorctl-bin` package, which installs a different program with the same name.
+
+### Linux setup (without the AUR package)
 
 On Linux, DDC/CI goes through the kernel's I²C devices (`/dev/i2c-*`), and you need access to them.
 
@@ -195,7 +211,7 @@ $ monitorctl input name hdmi --clear
 Cleared the name for hdmi
 ```
 
-Names show up in `status` (`Input:      thunderbolt (Work Mac)`), `input`, `input list`, and in the [menu bar app](#menu-bar-app-macos), where you can also rename an input. They're case-insensitive when you switch, up to 20 characters, and can't be something `input set` already understands (like `hdmi`, `tb`, or `17`) or another input's name.
+Names show up in `status` (`Input:      thunderbolt (Work Mac)`), `input`, `input list`, and in the [Monitor Control app](#monitor-control-app-macos), where you can also rename inputs. They're case-insensitive when you switch, up to 20 characters, and can't be something `input set` already understands (like `hdmi`, `tb`, or `17`) or another input's name.
 
 Names belong to the monitor model, and are kept in a small JSON file:
 
@@ -293,35 +309,57 @@ The output shapes:
 
 Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 
-## Menu bar app (macOS)
+## Monitor Control app (macOS)
 
-**Monitor Control** puts a monitor icon in the macOS menu bar. Click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It has no Dock icon or window. It does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
-
-### Build it
-
-You need [Rust](https://rustup.rs) and Apple's Command Line Tools (`xcode-select --install`). The full Xcode app isn't needed. Then:
-
-```sh
-./macos-app/build.sh
-```
-
-This builds `monitorctl` and the app, puts `monitorctl` inside it, and leaves `Monitor Control.app` in `target/`.
+**Monitor Control** puts your monitor's brightness and inputs in macOS **Control Center**, so you don't need a terminal. It needs **macOS 27 or later** on Apple Silicon. It has no Dock icon, and it does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
 
 ### Install it
 
-1. Drag `target/Monitor Control.app` into `/Applications` (or run `cp -R "target/Monitor Control.app" /Applications/`).
-2. Open it from `/Applications`. The monitor icon appears in the menu bar.
-3. To start it automatically, tick **Launch at login** at the bottom of its panel. It's added to System Settings › General › Login Items, where you can also turn it off. Turn it on from the copy in `/Applications`, since the login item remembers where the app was.
+1. Download `Monitor-Control-vX.Y.Z-macos-arm64.zip` from the [latest release](https://github.com/davemjones/dell-monitor-control/releases/latest), unzip it, and move **Monitor Control** into `/Applications`.
+2. Open it. The app isn't notarized by Apple yet, so the first time macOS blocks it: open **System Settings › Privacy & Security**, scroll down to the message about Monitor Control, and click **Open Anyway**.
+3. Its **Settings** window opens. Opening the app again at any time (from Applications or Spotlight) brings Settings back.
 
-The app isn't signed by a registered developer. An app you build yourself opens normally. If you copy it from another Mac and macOS blocks it, right-click it and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Monitor Control.app"` (see [above](#macos-unidentified-developer-warning)).
+### Add the controls
+
+Click **Control Center** in the menu bar, choose **Edit Controls**, search for **Monitor Control**, and add the controls you want. You can also drag a control into the menu bar.
+
+| Control | What it does |
+|---|---|
+| **Monitor Brightness** | Opens a brightness slider at the top right of the screen |
+| **Monitor Input** | Opens the monitor's inputs (with your names for them); click one to switch |
+| **Monitor Control Settings** | Opens Settings |
+
+The panels close when you press Esc or click elsewhere. Control Center only offers buttons and switches, which is why brightness opens a slider rather than sitting in Control Center itself. If no monitor is connected, the panel says **No monitor detected**.
+
+### Settings
+
+- **Input Names:** type a name next to each input and press Return (or click away). Clear the field to go back to the built-in name. These are the same names `monitorctl input name` sets, and they appear in the controls, the menu bar panel, and Shortcuts.
+- **Show menu bar icon** (off by default): adds the original menu bar panel, with the input list (right-click an input to rename it), the brightness slider, **Settings…** (⌘,), and Quit.
+- **Launch at login:** keeps the controls quick to respond; otherwise the first click after logging in starts the app. You can also manage it in System Settings › General › Login Items.
+- **Quit Monitor Control**, since with the icon off there's no menu to quit from.
+
+### Shortcuts
+
+The Shortcuts app has two Monitor Control actions, ready to use: **Switch Monitor Input** (choose an input by name) and **Set Monitor Brightness** (0–100). Use them in your own shortcuts or bind them to keyboard shortcuts. Siri and Spotlight phrases aren't supported yet.
 
 ### Good to know
 
-- **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
+- **Switching away from this Mac:** picking another input sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see anything until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
 - **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
-- **Naming inputs:** right-click (or Control-click) an input and choose **Rename…**, type a name, and press Return; Esc cancels. **Reset Name** goes back to the built-in one. The names are the same ones `monitorctl input name` sets.
 - **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
-- Readings are taken when the app starts and again each time the panel opens. The panel shows the last readings straight away and updates them in place, so changes made with the monitor's buttons appear a moment after you open it.
+- Readings are taken when the app starts and again each time a panel or Settings opens. Panels show the last readings straight away and update them in place, so changes made with the monitor's buttons appear a moment after you open them.
+
+### Build it
+
+You need [Rust](https://rustup.rs) and Xcode 27.2 or later, signed in with an Apple ID (Xcode › Settings › Accounts; a free Personal Team is enough).
+
+1. Copy `macos-app/Config/Signing.local.xcconfig.example` to `macos-app/Config/Signing.local.xcconfig` and set your Team ID: the 10-character code next to your team in Xcode › Settings › Accounts. That file is git-ignored.
+2. Build:
+   ```sh
+   ./macos-app/build.sh
+   ```
+
+This builds `monitorctl`, the app, and its Control Center controls with Xcode, puts `monitorctl` inside the app, signs everything with your team, and leaves `Monitor Control.app` in `target/`. Move it to `/Applications` before adding the controls. You can also open `macos-app/MonitorControl.xcodeproj` in Xcode, after running `cargo build --release` once so there's a `monitorctl` to bundle.
 
 To run the app's tests: `swift test --package-path macos-app`.
 
@@ -340,7 +378,7 @@ Per-platform requirements:
 
 - **macOS (Apple Silicon):** install Rust with rustup; no other setup.
 - **Windows 11:** install Rust with rustup, plus the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload, which provides the MSVC linker. The project links the C runtime statically, so the resulting `.exe` runs on machines without the Visual C++ runtime.
-- **Arch Linux:** `sudo pacman -S --needed rustup base-devel pkgconf`, then `rustup default stable`. The `libudev` it links against comes with `systemd`, which every Arch install has. Do the [I²C setup](#arch-linux-setup) above before running it.
+- **Arch Linux:** `sudo pacman -S --needed rustup base-devel pkgconf`, then `rustup default stable`. The `libudev` it links against comes with `systemd`, which every Arch install has. Do the [I²C setup](#linux-setup-without-the-aur-package) above before running it.
 - **Debian/Ubuntu (for building only):** `sudo apt install libudev-dev pkg-config`.
 
 Run the tests with `cargo test`. They use a simulated monitor, so no hardware is needed.
@@ -352,9 +390,10 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 - **The U3425WE doesn't support speaker mute over DDC/CI.** Use `monitorctl volume 0` instead.
 - **Input names belong to a monitor model**, so two identical monitors share the same names.
 - **The U3425WE keeps a separate brightness for each input.** `monitorctl brightness` reads and sets the brightness of the input that's currently showing.
-- **Windows and Linux** builds are tested automatically, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
-- **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs, Windows on ARM, and Linux on ARM aren't supported.
-- **The menu bar app is macOS-only** and isn't signed or notarized. There's no tray app for Windows or Linux.
+- **Windows and Linux** builds pass the test suite against a simulated monitor, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
+- **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs and Windows on ARM aren't supported. Linux on ARM64 is built but hasn't been tried on real hardware yet.
+- **The Monitor Control app is macOS-only** (macOS 27 or later) and isn't notarized yet, so macOS asks you to approve it the first time (Privacy & Security › Open Anyway). There's no tray app for Windows or Linux.
+- **The app works with one monitor.** With several DDC/CI monitors connected it says so; use `monitorctl --monitor` for the others.
 - Only input, brightness, volume, and mute are supported. Contrast, color presets, KVM, and PbP/PiP aren't.
 
 ## Troubleshooting
@@ -362,8 +401,8 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 | Message | What to do |
 |---|---|
 | `no DDC/CI-capable monitors found` | Turn on DDC/CI in the monitor's menu (Others → DDC/CI) and try a direct cable instead of a dock or adapter. On Windows, also update your graphics driver. |
-| `…the i2c-dev kernel module probably isn't loaded` (Linux) | Do step 1 of the [Arch I²C setup](#arch-linux-setup). |
-| `no permission to open /dev/i2c-N` (Linux) | Do steps 2–3 of the [Arch I²C setup](#arch-linux-setup). |
+| `…the i2c-dev kernel module probably isn't loaded` (Linux) | Install the [AUR package](#arch-linux-setup) and run `sudo modprobe i2c-dev`, or do step 1 of the [manual I²C setup](#linux-setup-without-the-aur-package). |
+| `no permission to open /dev/i2c-N` (Linux) | Do steps 2–3 of the [manual I²C setup](#linux-setup-without-the-aur-package) (the AUR package does this for you). |
 | `couldn't read … from <monitor>` / `couldn't change …` | The monitor didn't answer, even after automatic retries. Check DDC/CI is on and try a direct cable. |
 | `several monitors are connected; choose one with --monitor` | Add `--monitor <number or model>`; see `monitorctl list`. |
 | `doesn't support speaker mute over DDC/CI` | Use `monitorctl volume 0`. |

@@ -23,6 +23,7 @@ Every read command takes `--json`. One codebase builds for macOS (Apple Silicon)
 | Path | What it is |
 |---|---|
 | `src/main.rs` | Entry point. Prints output, or errors (`error: …` as text, or JSON with `--json`) |
+| `packaging/aur/` | The AUR package `monitorctl`: `PKGBUILD` (builds from the tag's source tarball, runs `cargo test`, `arch=('x86_64' 'aarch64')`), `monitorctl.install`, and the `i2c-dev` modules-load and `uaccess` udev files it installs. Keep it working when Linux build steps or dependencies change |
 | `src/cli.rs` | clap argument definitions (`Cli`, `Command`, `InputAction`, `Level`) |
 | `src/commands.rs` | All command logic, written against the `Backend`/`Monitor` traits. Most tests live here |
 | `src/output.rs` | Output structs (`Status`, `InputEntry`, …) and text/JSON rendering |
@@ -34,7 +35,6 @@ Every read command takes `--json`. One codebase builds for macOS (Apple Silicon)
 | `src/backend/linux_i2c.rs` | **Linux-specific.** When no monitors are found, it probes `/dev/i2c-*` to say whether `i2c-dev` isn't loaded or permissions are missing |
 | `src/backend/fake.rs` | `FakeMonitor` / `FakeBackend` for tests. Includes the real U3425WE capabilities string |
 | `src/backend/windows_edid.rs`, `macos_serial.rs` | Other platforms (Windows compiles only its pure parsing under `cfg(test)`) |
-| `.github/workflows-disabled/` | CI (`ci.yml`) and release (`release.yml`) workflows, **parked** (not active). Linux CI uses `ubuntu-latest` plus `libudev-dev pkg-config`; the release builds on `ubuntu-22.04` for an older glibc |
 | `.cargo/config.toml` | Windows-only static CRT flag; irrelevant on Linux |
 | `macos-app/` | macOS menu bar app; not built on Linux |
 
@@ -78,7 +78,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-All of these must pass before anything is committed. These are the same checks the parked CI runs. (A `nom v3.2.1` "future incompatibility" note during builds comes from a dependency and is expected.)
+All of these must pass before anything is committed. (A `nom v3.2.1` "future incompatibility" note during builds comes from a dependency and is expected.)
 
 ## Verify on the real monitor
 
@@ -119,6 +119,7 @@ Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show u
 
 ## How to make changes
 
+- **Release builds** for Linux x64 and ARM64 happen in `ubuntu:22.04` containers (glibc ≤ 2.35) and the AUR package is published from an Arch machine; follow `specs/releases/<version>/tasks.md`.
 - **Keep platform code at the edge.** `src/commands.rs` must stay platform-neutral. Linux fixes belong in `src/backend/ddc.rs` (behind `#[cfg(target_os = "linux")]`) or `src/backend/linux_i2c.rs`.
 - **Every behavior change gets a test** in the existing `FakeBackend` style (`run_with(monitors, &["args"])` in `src/commands.rs`). Linux diagnostics are pure functions (`diagnose`) for exactly this reason; keep them that way so tests run on any OS.
 - **Don't break the other platforms.** Gate Linux-only code with `cfg`, and make sure `cargo test` still compiles everywhere. In particular, don't add Linux-only dependencies outside a `[target.'cfg(target_os = "linux")'.dependencies]` table in `Cargo.toml`.
@@ -130,7 +131,7 @@ Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show u
   - Only commit when asked.
   - Use short imperative subject lines with a body explaining why (see `git log`).
   - Keep one logical change per commit.
-- **Re-enabling CI:** the workflows are parked in `.github/workflows-disabled/`. Move them back to `.github/workflows/` only when asked.
+- **No GitHub workflows, ever.** All builds are local. To build this platform's release assets, follow `specs/releases/<version>/tasks.md` in the specs repository.
 
 ## Building a Linux tray/desktop app (if requested)
 

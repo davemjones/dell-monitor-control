@@ -1,0 +1,10 @@
+post_install() {
+  echo ":: monitorctl talks to monitors through /dev/i2c-*."
+  echo "   The i2c-dev module loads at every boot from now on. To use monitorctl"
+  echo "   before rebooting, load it once:  sudo modprobe i2c-dev"
+  echo "   Make sure DDC/CI is on in the monitor's own menu."
+}
+
+post_upgrade() {
+  :
+}

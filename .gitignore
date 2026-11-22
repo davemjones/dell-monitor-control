@@ -1,4 +1,10 @@
 /target
 .DS_Store
 /macos-app/.build/
+/macos-app/.swiftpm/
+/macos-app/Config/Signing.local.xcconfig
+/macos-app/Config/Version.xcconfig
+/macos-app/App/Assets.xcassets/AppIcon.appiconset/*.png
+/macos-app/MonitorControl.xcodeproj/project.xcworkspace/xcuserdata/
+/macos-app/MonitorControl.xcodeproj/xcuserdata/
 /specs/

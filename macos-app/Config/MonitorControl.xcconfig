@@ -1,0 +1,10 @@
+// Settings shared by every target and configuration. Per-machine values live
+// in git-ignored files next to this one, so they never reach the public repo.
+
+// Code-signing team (your Apple Developer Team ID). Copy
+// Signing.local.xcconfig.example to Signing.local.xcconfig and fill it in.
+#include? "Signing.local.xcconfig"
+
+// MARKETING_VERSION and CURRENT_PROJECT_VERSION, written by build.sh from
+// Cargo.toml so the app and monitorctl always share one version.
+#include? "Version.xcconfig"

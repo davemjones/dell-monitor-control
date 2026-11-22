@@ -1,0 +1,3 @@
+# Installed by the monitorctl package: give the logged-in user access to the
+# I2C devices DDC/CI uses, without needing an i2c group.
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", TAG+="uaccess"
