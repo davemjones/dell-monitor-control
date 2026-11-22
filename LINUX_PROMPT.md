@@ -34,7 +34,6 @@ Every read command takes `--json`. One codebase builds for macOS (Apple Silicon)
 | `src/backend/linux_i2c.rs` | **Linux-specific.** When no monitors are found, it probes `/dev/i2c-*` to say whether `i2c-dev` isn't loaded or permissions are missing |
 | `src/backend/fake.rs` | `FakeMonitor` / `FakeBackend` for tests. Includes the real U3425WE capabilities string |
 | `src/backend/windows_edid.rs`, `macos_serial.rs` | Other platforms (Windows compiles only its pure parsing under `cfg(test)`) |
-| `.github/workflows-disabled/` | CI (`ci.yml`) and release (`release.yml`) workflows, **parked** (not active). Linux CI uses `ubuntu-latest` plus `libudev-dev pkg-config`; the release builds on `ubuntu-22.04` for an older glibc |
 | `.cargo/config.toml` | Windows-only static CRT flag; irrelevant on Linux |
 | `macos-app/` | macOS menu bar app; not built on Linux |
 
@@ -78,7 +77,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-All of these must pass before anything is committed. These are the same checks the parked CI runs. (A `nom v3.2.1` "future incompatibility" note during builds comes from a dependency and is expected.)
+All of these must pass before anything is committed. (A `nom v3.2.1` "future incompatibility" note during builds comes from a dependency and is expected.)
 
 ## Verify on the real monitor
 
@@ -130,7 +129,7 @@ Laptop note: the built-in panel isn't DDC-capable, so it normally doesn't show u
   - Only commit when asked.
   - Use short imperative subject lines with a body explaining why (see `git log`).
   - Keep one logical change per commit.
-- **Re-enabling CI:** the workflows are parked in `.github/workflows-disabled/`. Move them back to `.github/workflows/` only when asked.
+- **No GitHub workflows, ever.** All builds are local. To build this platform's release assets, follow `specs/releases/<version>/tasks.md` in the specs repository.
 
 ## Building a Linux tray/desktop app (if requested)
 

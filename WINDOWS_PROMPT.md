@@ -35,7 +35,6 @@ Every read command takes `--json`. One codebase builds for macOS (Apple Silicon)
 | `src/backend/fake.rs` | `FakeMonitor` / `FakeBackend` for tests. Includes the real U3425WE capabilities string |
 | `src/backend/linux_i2c.rs`, `macos_serial.rs` | Other platforms |
 | `.cargo/config.toml` | **Windows:** links the C runtime statically (`+crt-static`) so `monitorctl.exe` runs without the Visual C++ Redistributable. Keep it |
-| `.github/workflows-disabled/` | CI (`ci.yml`) and release (`release.yml`) workflows, **parked** (not active). Windows CI uses `windows-latest`; the release packages `monitorctl-vX.Y.Z-windows-x64.zip` |
 | `macos-app/` | macOS menu bar app; not built on Windows |
 
 How it works on Windows:
@@ -62,7 +61,7 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-All of these must pass before anything is committed. These are the same checks the parked CI runs. (A `nom v3.2.1` "future incompatibility" note during builds comes from a dependency and is expected.)
+All of these must pass before anything is committed. (A `nom v3.2.1` "future incompatibility" note during builds comes from a dependency and is expected.)
 
 Check the static runtime with `dumpbin /dependents target\release\monitorctl.exe` (from a Developer PowerShell). It should **not** list `VCRUNTIME140.dll`.
 
@@ -114,7 +113,7 @@ Work through this with the U3425WE connected. Note what Windows actually reports
   - Only commit when asked.
   - Use short imperative subject lines with a body explaining why (see `git log`).
   - Keep one logical change per commit.
-- **Re-enabling CI:** the workflows are parked in `.github/workflows-disabled/`. Move them back to `.github/workflows/` only when asked.
+- **No GitHub workflows, ever.** All builds are local. To build this platform's release assets, follow `specs/releases/<version>/tasks.md` in the specs repository.
 
 ## Building a Windows tray app (if requested)
 

@@ -2,7 +2,7 @@
 
 Control a monitor from the terminal: switch inputs, set brightness, and set or mute the built-in speakers. It runs on macOS (Apple Silicon), Windows 11, and Arch Linux.
 
-On macOS there's also a [menu bar app](#menu-bar-app-macos), **Monitor Control**, for switching inputs and adjusting brightness without a terminal.
+On macOS there's also an app, [**Monitor Control**](#monitor-control-app-macos), that puts brightness and input switching in Control Center, with Shortcuts actions too.
 
 ```console
 $ monitorctl
@@ -33,17 +33,19 @@ Download the archive for your platform from the [latest release](https://github.
 | Windows 11 (x64) | `monitorctl-vX.Y.Z-windows-x64.zip` |
 | Linux (x64), e.g. Arch | `monitorctl-vX.Y.Z-linux-x64.tar.gz` |
 
-Each archive contains a single standalone `monitorctl` binary (`monitorctl.exe` on Windows). Put it somewhere on your `PATH`.
+Each archive contains a folder with a single standalone `monitorctl` binary (`monitorctl.exe` on Windows), the README, and the licenses. Put the binary somewhere on your `PATH`. For the macOS app, see [Monitor Control app](#monitor-control-app-macos).
 
-To check a download, compare it against `SHA256SUMS` from the same release:
+Every download has a matching `.sha256` file. To check a download, put both in the same folder and run:
 
 ```sh
-shasum -a 256 -c SHA256SUMS --ignore-missing      # macOS
-sha256sum -c SHA256SUMS --ignore-missing          # Linux
+shasum -a 256 -c monitorctl-vX.Y.Z-macos-arm64.tar.gz.sha256      # macOS
+sha256sum -c monitorctl-vX.Y.Z-linux-x64.tar.gz.sha256            # Linux
 ```
 
 ```powershell
-Get-FileHash .\monitorctl-vX.Y.Z-windows-x64.zip     # Windows: compare with SHA256SUMS
+# Windows: the two hashes must match
+(Get-FileHash .\monitorctl-vX.Y.Z-windows-x64.zip).Hash.ToLower()
+Get-Content .\monitorctl-vX.Y.Z-windows-x64.zip.sha256
 ```
 
 ### macOS: "unidentified developer" warning
@@ -195,7 +197,7 @@ $ monitorctl input name hdmi --clear
 Cleared the name for hdmi
 ```
 
-Names show up in `status` (`Input:      thunderbolt (Work Mac)`), `input`, `input list`, and in the [menu bar app](#menu-bar-app-macos), where you can also rename an input. They're case-insensitive when you switch, up to 20 characters, and can't be something `input set` already understands (like `hdmi`, `tb`, or `17`) or another input's name.
+Names show up in `status` (`Input:      thunderbolt (Work Mac)`), `input`, `input list`, and in the [Monitor Control app](#monitor-control-app-macos), where you can also rename inputs. They're case-insensitive when you switch, up to 20 characters, and can't be something `input set` already understands (like `hdmi`, `tb`, or `17`) or another input's name.
 
 Names belong to the monitor model, and are kept in a small JSON file:
 
@@ -293,9 +295,45 @@ The output shapes:
 
 Errors go to stderr with exit code 1. Invalid arguments exit with code 2.
 
-## Menu bar app (macOS)
+## Monitor Control app (macOS)
 
-**Monitor Control** controls the monitor from macOS. It needs macOS 27 or later on Apple Silicon. It has no Dock icon. Opening it shows its **Settings** window, where you name your inputs and choose whether it shows a monitor icon in the menu bar (off by default). With the icon on, click it to see the monitor's active input and brightness, switch inputs with one click, and drag a slider to change brightness. It does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
+**Monitor Control** puts your monitor's brightness and inputs in macOS **Control Center**, so you don't need a terminal. It needs **macOS 27 or later** on Apple Silicon. It has no Dock icon, and it does everything by running its own bundled copy of `monitorctl`, so it behaves exactly like the command line.
+
+### Install it
+
+1. Download `Monitor-Control-vX.Y.Z-macos-arm64.zip` from the [latest release](https://github.com/davemjones/dell-monitor-control/releases/latest), unzip it, and move **Monitor Control** into `/Applications`.
+2. Open it. The app isn't notarized by Apple yet, so the first time macOS blocks it: open **System Settings › Privacy & Security**, scroll down to the message about Monitor Control, and click **Open Anyway**.
+3. Its **Settings** window opens. Opening the app again at any time (from Applications or Spotlight) brings Settings back.
+
+### Add the controls
+
+Click **Control Center** in the menu bar, choose **Edit Controls**, search for **Monitor Control**, and add the controls you want. You can also drag a control into the menu bar.
+
+| Control | What it does |
+|---|---|
+| **Monitor Brightness** | Opens a brightness slider at the top right of the screen |
+| **Monitor Input** | Opens the monitor's inputs (with your names for them); click one to switch |
+| **Monitor Control Settings** | Opens Settings |
+
+The panels close when you press Esc or click elsewhere. Control Center only offers buttons and switches, which is why brightness opens a slider rather than sitting in Control Center itself. If no monitor is connected, the panel says **No monitor detected**.
+
+### Settings
+
+- **Input Names:** type a name next to each input and press Return (or click away). Clear the field to go back to the built-in name. These are the same names `monitorctl input name` sets, and they appear in the controls, the menu bar panel, and Shortcuts.
+- **Show menu bar icon** (off by default): adds the original menu bar panel, with the input list (right-click an input to rename it), the brightness slider, **Settings…** (⌘,), and Quit.
+- **Launch at login:** keeps the controls quick to respond; otherwise the first click after logging in starts the app. You can also manage it in System Settings › General › Login Items.
+- **Quit Monitor Control**, since with the icon off there's no menu to quit from.
+
+### Shortcuts
+
+The Shortcuts app has two Monitor Control actions, ready to use: **Switch Monitor Input** (choose an input by name) and **Set Monitor Brightness** (0–100). Use them in your own shortcuts or bind them to keyboard shortcuts. Siri and Spotlight phrases aren't supported yet.
+
+### Good to know
+
+- **Switching away from this Mac:** picking another input sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see anything until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
+- **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
+- **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
+- Readings are taken when the app starts and again each time a panel or Settings opens. Panels show the last readings straight away and update them in place, so changes made with the monitor's buttons appear a moment after you open them.
 
 ### Build it
 
@@ -307,24 +345,7 @@ You need [Rust](https://rustup.rs) and Xcode 27.2 or later, signed in with an Ap
    ./macos-app/build.sh
    ```
 
-This builds `monitorctl` and the app with Xcode, puts `monitorctl` inside it, signs both with your team, and leaves `Monitor Control.app` in `target/`. You can also open `macos-app/MonitorControl.xcodeproj` in Xcode, after running `cargo build --release` once so there's a `monitorctl` to bundle.
-
-### Install it
-
-1. Drag `target/Monitor Control.app` into `/Applications` (or run `cp -R "target/Monitor Control.app" /Applications/`).
-2. Open it from `/Applications`. Its Settings window opens. Opening the app again at any time brings Settings back.
-3. To start it automatically, turn on **Launch at login** in Settings (or at the bottom of the menu bar panel). It's added to System Settings › General › Login Items, where you can also turn it off. Turn it on from the copy in `/Applications`, since the login item remembers where the app was.
-
-The app isn't signed by a registered developer. An app you build yourself opens normally. If you copy it from another Mac and macOS blocks it, right-click it and choose **Open**, or run `xattr -dr com.apple.quarantine "/Applications/Monitor Control.app"` (see [above](#macos-unidentified-developer-warning)).
-
-### Good to know
-
-- **Switching away from this Mac:** picking another input from the panel sends the monitor to that source right away. If this monitor is the Mac's only display, you won't see the menu bar until you switch back, so use the monitor's own buttons (see also [Known limitations](#known-limitations)).
-- **One monitor:** the app controls the single monitor `monitorctl` picks automatically. With several DDC/CI monitors connected it says so instead.
-- **Naming inputs:** type a name next to each input in Settings and press Return; clear the field to go back to the built-in name. In the menu bar panel you can also right-click (or Control-click) an input and choose **Rename…** or **Reset Name**. The names are the same ones `monitorctl input name` sets.
-- **Settings…** in the menu bar panel's footer (⌘,) opens Settings; Settings also has **Quit Monitor Control**, since with the icon off there's no menu to quit from.
-- **No volume controls** in the app yet; use `monitorctl volume` and `monitorctl speaker`.
-- Readings are taken when the app starts and again each time the panel opens. The panel shows the last readings straight away and updates them in place, so changes made with the monitor's buttons appear a moment after you open it.
+This builds `monitorctl`, the app, and its Control Center controls with Xcode, puts `monitorctl` inside the app, signs everything with your team, and leaves `Monitor Control.app` in `target/`. Move it to `/Applications` before adding the controls. You can also open `macos-app/MonitorControl.xcodeproj` in Xcode, after running `cargo build --release` once so there's a `monitorctl` to bundle.
 
 To run the app's tests: `swift test --package-path macos-app`.
 
@@ -355,9 +376,10 @@ Run the tests with `cargo test`. They use a simulated monitor, so no hardware is
 - **The U3425WE doesn't support speaker mute over DDC/CI.** Use `monitorctl volume 0` instead.
 - **Input names belong to a monitor model**, so two identical monitors share the same names.
 - **The U3425WE keeps a separate brightness for each input.** `monitorctl brightness` reads and sets the brightness of the input that's currently showing.
-- **Windows and Linux** builds are tested automatically, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
+- **Windows and Linux** builds pass the test suite against a simulated monitor, but have not yet been tried against real monitor hardware. Only macOS has been verified end to end on the U3425WE. Reports are welcome.
 - **macOS:** the binary is unsigned (see [above](#macos-unidentified-developer-warning)). Intel Macs, Windows on ARM, and Linux on ARM aren't supported.
-- **The menu bar app is macOS-only** and isn't signed or notarized. There's no tray app for Windows or Linux.
+- **The Monitor Control app is macOS-only** (macOS 27 or later) and isn't notarized yet, so macOS asks you to approve it the first time (Privacy & Security › Open Anyway). There's no tray app for Windows or Linux.
+- **The app works with one monitor.** With several DDC/CI monitors connected it says so; use `monitorctl --monitor` for the others.
 - Only input, brightness, volume, and mute are supported. Contrast, color presets, KVM, and PbP/PiP aren't.
 
 ## Troubleshooting
