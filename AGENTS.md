@@ -62,7 +62,7 @@ swift test --package-path macos-app         # core-module tests
 
 All of the above must pass before committing. A `nom v3.2.1` "future incompatibility" warning comes from a dependency and is expected. `Package.swift` passes the Command Line Tools' Swift Testing plugin path explicitly so `swift test` works without Xcode; don't remove that.
 
-The app version comes from `Cargo.toml`'s `version`, which `build.sh` writes into `Info.plist`. The release workflow requires the git tag to match it.
+The app version comes from `Cargo.toml`'s `version`, which `build.sh` writes into `Info.plist`. The release workflow requires the git tag to match it. Every new feature bumps it (see [Features across both repositories](#features-across-both-repositories)).
 
 ## Architecture rules
 
@@ -116,10 +116,11 @@ Feature work spans two repositories: this one (code, public) and `specs/` (specs
    ```
    Before working, check that both repositories are on the same branch (`git branch --show-current; git -C specs branch --show-current`). If they differ, stop and ask.
 2. **Spec first.** Write or update the spec in `specs/` before changing code, and keep it accurate as the implementation changes. The spec PR merges before, or together with, the code PR, never after.
-3. **Check and commit each repository separately.** `git status` here does not show changes inside `specs/`. Always check both (`git status && git -C specs status`), and commit spec changes in `specs/` and code changes here, each with its own message. The commit rules in [Conventions](#conventions) apply to both.
-4. **Link the pull requests.** In the code PR, add `Spec: davemjones/dell-monitor-control-specs#<n>`; in the spec PR, link the code PR. Don't paste private spec content into the public code PR beyond a short summary.
-5. **Record the spec version on merge.** Put the spec commit the code was built against in the code PR description or merge commit, e.g. `Spec: dell-monitor-control-specs@<short-sha>`.
-6. **Finish together.** After both PRs merge, switch both repositories back to `main`, pull, and delete the feature branch in each (locally and on GitHub).
+3. **Bump the version.** Every new feature raises the minor version in `Cargo.toml` (`0.1.0` → `0.2.0`, `1.2.3` → `1.3.0`) at the start of the work, so builds from the branch are distinguishable from `main`. Run `cargo build` so `Cargo.lock` picks it up, and include both files in the feature's code commit. Check that no other merged feature has already taken that number; if `main` moved on, bump again from its version.
+4. **Check and commit each repository separately.** `git status` here does not show changes inside `specs/`. Always check both (`git status && git -C specs status`), and commit spec changes in `specs/` and code changes here, each with its own message. The commit rules in [Conventions](#conventions) apply to both.
+5. **Link the pull requests.** In the code PR, add `Spec: davemjones/dell-monitor-control-specs#<n>`; in the spec PR, link the code PR. Don't paste private spec content into the public code PR beyond a short summary.
+6. **Record the spec version on merge.** Put the spec commit the code was built against in the code PR description or merge commit, e.g. `Spec: dell-monitor-control-specs@<short-sha>`.
+7. **Finish together.** After both PRs merge, switch both repositories back to `main`, pull, and delete the feature branch in each (locally and on GitHub).
 
 Git worktrees of this project don't include `specs/` (it's ignored). If you work in a worktree, create a matching worktree of the specs repository at `<worktree>/specs` on the same branch.
 
